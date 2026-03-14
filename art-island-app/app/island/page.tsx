@@ -55,6 +55,7 @@ export default function App() {
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     loadCharacters();
@@ -313,8 +314,22 @@ export default function App() {
     }
   };
 
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const newZoom = Math.min(Math.max(zoom - e.deltaY * 0.001, 0.3), 3);
+    const zoomRatio = newZoom / zoom;
+
+    // Mouse position relative to screen center
+    const mouseX = e.clientX - window.innerWidth / 2;
+    const mouseY = e.clientY - window.innerHeight / 2;
+
+    // Adjust pan so the point under the cursor stays fixed
+    setPanX((prev) => mouseX + (prev - mouseX) * zoomRatio);
+    setPanY((prev) => mouseY + (prev - mouseY) * zoomRatio);
+    setZoom(newZoom);
+  };
+
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Don't pan if drawing, uploading, or character detail is open
     if (modalState === "draw" || modalState === "upload" || selectedCharacter) {
       return;
     }
@@ -378,11 +393,12 @@ export default function App() {
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={handleCanvasPointerUp}
       onPointerCancel={handleCanvasPointerCancel}
+      onWheel={handleWheel}
     >
       {/* Planets and Characters Container */}
       <div
         style={{
-          transform: `translate(${panX}px, ${panY}px)`,
+          transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
           transition: isPanning ? "none" : "transform 0.1s ease-out",
         }}
         className="absolute inset-0 pointer-events-none"
@@ -553,6 +569,7 @@ export default function App() {
           characters={characters}
           panX={panX}
           panY={panY}
+          zoom={zoom}
         />
       )}
     </div>
