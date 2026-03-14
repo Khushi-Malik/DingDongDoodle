@@ -11,6 +11,7 @@ import { NewIslandModal } from "../components/NewIslandModal";
 import { ChooseInputModal } from "../components/ChooseInputModal";
 import { DrawingCanvas } from "../components/DrawingCanvas";
 import { TutorialOverlay } from "../components/TutorialOverlay";
+import { Minimap } from "../components/Minimap";
 
 type ModalState = "none" | "choose" | "draw" | "upload";
 type TutorialStep = "create-island" | "draw-maple" | "none";
@@ -401,7 +402,7 @@ export default function App() {
               <div
                 style={{
                   width: planet.size,
-                  height: planet.size - 500,
+                  height: planet.size,
                   borderRadius: "70%",
                   background: planet.color,
                   border: `2px solid ${planet.border}`,
@@ -544,6 +545,16 @@ export default function App() {
             onDismiss={handleTutorialDismiss}
           />
         )}
+
+      {/* Minimap */}
+      {islands.length > 0 && (
+        <Minimap
+          islands={islands}
+          characters={characters}
+          panX={panX}
+          panY={panY}
+        />
+      )}
     </div>
   );
 }
