@@ -198,25 +198,37 @@ export default function App() {
     );
     const placedPositions: Array<{ x: number; y: number }> = [];
     const minDistance = (CHARACTER_FOOTPRINT_PX / island.size) * 100;
-    const maxRadius = 50 - minDistance / 2 - 3;
+    
+    // Position characters ONLY on the green top part
+    const greenTopStart = 10;
+    const greenTopEnd = 45;
+    const greenLeft = 15;
+    const greenRight = 85;
 
     return islandCharacters.map((character, index) => {
+      // First character centered on green
       if (index === 0) {
         const centered = {
           ...character,
-          position: { x: 50, y: 50 },
+          position: { x: 50, y: 22 },
         };
         placedPositions.push(centered.position);
         return centered;
       }
 
+      // Try to find a valid position on the green area
       for (let attempt = 0; attempt < 240; attempt++) {
-        const angle = index * 0.9 + attempt * 2.399963229728653;
-        const radius = maxRadius * (0.45 + 0.55 * ((attempt % 12) / 11));
+        const angle = (index + attempt * 0.618) * Math.PI * 2;
+        const radius = (attempt / 240) * 25; // Spiral outward
+        
         const candidate = {
           x: 50 + Math.cos(angle) * radius,
-          y: 50 + Math.sin(angle) * radius,
+          y: 22 + Math.sin(angle) * radius * 0.6, // More horizontal spread
         };
+
+        // Strictly constrain to green area
+        candidate.x = Math.max(greenLeft, Math.min(greenRight, candidate.x));
+        candidate.y = Math.max(greenTopStart, Math.min(greenTopEnd, candidate.y));
 
         const isColliding = placedPositions.some((position) => {
           const dx = position.x - candidate.x;
@@ -233,11 +245,10 @@ export default function App() {
         }
       }
 
-      const fallbackAngle =
-        index * ((Math.PI * 2) / Math.max(islandCharacters.length, 1));
+      // Fallback: linear spread across green area
       const fallback = {
-        x: 50 + Math.cos(fallbackAngle) * maxRadius,
-        y: 50 + Math.sin(fallbackAngle) * maxRadius,
+        x: greenLeft + ((greenRight - greenLeft) * (index / Math.max(islandCharacters.length, 1))),
+        y: 22,
       };
       placedPositions.push(fallback);
       return {
@@ -419,11 +430,12 @@ export default function App() {
                 style={{
                   width: planet.size,
                   height: planet.size,
-                  borderRadius: "70%",
-                  background: planet.color,
-                  border: `2px solid ${planet.border}`,
                   overflow: "hidden",
                   position: "relative",
+                  backgroundImage: "url('/island.png')",
+                  backgroundSize: "contain",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
                 }}
               >
                 {getIslandCharacterLayouts(planet.id).map((character) => (
