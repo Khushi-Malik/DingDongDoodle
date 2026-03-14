@@ -30,7 +30,7 @@ export function UploadModal({
   const [imageUrl, setImageUrl] = useState<string>(previewImageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [age, setAge] = useState("");
+  const [creationDate, setCreationDate] = useState("");
   const [selectedIslandId, setSelectedIslandId] = useState(islands[0]?.id || 1);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,11 +42,20 @@ export function UploadModal({
     }
   };
 
+  const calculateArtAge = (dateString: string): number => {
+    const createdDate = new Date(dateString);
+    const today = new Date();
+    const ageInMs = today.getTime() - createdDate.getTime();
+    const ageInYears = Math.floor(ageInMs / (1000 * 60 * 60 * 24 * 365.25));
+    return Math.max(0, ageInYears);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Allow submission if we have an image (either from file or preview) and required fields
-    if ((imageFile || previewImageUrl) && name && age) {
-      onSubmit(imageFile, name, parseInt(age), selectedIslandId);
+    if ((imageFile || previewImageUrl) && name && creationDate) {
+      const artAge = calculateArtAge(creationDate);
+      onSubmit(imageFile, name, artAge, selectedIslandId);
       onClose();
     }
   };
@@ -146,20 +155,18 @@ export function UploadModal({
 
           <div>
             <label
-              htmlFor="age"
+              htmlFor="creationDate"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Character's Age
+              Art Creation Date
             </label>
             <input
-              type="number"
-              id="age"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
+              type="date"
+              id="creationDate"
+              value={creationDate}
+              onChange={(e) => setCreationDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none"
-              placeholder="Enter age..."
-              min="1"
-              max="99"
               required
             />
           </div>

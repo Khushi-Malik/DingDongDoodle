@@ -418,7 +418,7 @@ export default function App() {
                 ))}
               </div>
               <p
-                className="text-center text-xs font-medium mt-1"
+                className="text-center text-lg font-medium mt-3"
                 style={{ color: "#888780" }}
               >
                 {planet.label}
