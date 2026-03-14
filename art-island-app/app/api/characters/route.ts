@@ -1,40 +1,80 @@
-import { NextResponse } from "next/server";
-import { connectDB, Character } from "@/lib/mongodb";
+import { NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import mongoose from 'mongoose';
+import { jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+
+const characterSchema = new mongoose.Schema({
+  userId: String,
+  name: String,
+  age: Number,
+  imageUrl: String,
+  position: { x: Number, y: Number },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Character = mongoose.models.Character || mongoose.model('Character', characterSchema);
+
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-change-me');
+
+async function getUserId(): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    if (!token) return null;
+    const { payload } = await jwtVerify(token, secret);
+    return payload.userId as string;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET() {
   try {
-    await connectDB();
-    const characters = await Character.find({}).sort({ createdAt: -1 }).lean();
+    const userId = await getUserId();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    return NextResponse.json(characters);
+    await connectDB();
+    const characters = await Character.find({ userId }).sort({ createdAt: 1 });
+
+    return NextResponse.json(characters.map(char => ({
+      id: char._id.toString(),
+      imageUrl: char.imageUrl,
+      name: char.name,
+      age: char.age,
+      position: char.position,
+    })));
   } catch (error) {
-    console.error("GET /api/characters error:", error);
-    return NextResponse.json(
-      { error: "Failed to load characters" },
-      { status: 500 },
-    );
+    console.error('GET error:', error);
+    return NextResponse.json({ error: 'Failed to load characters' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const userId = await getUserId();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     await connectDB();
     const body = await request.json();
 
     const character = await Character.create({
+      userId,
       name: body.name,
       age: body.age,
-      image_url: body.image_url,
-      position_x: body.position_x,
-      position_y: body.position_y,
+      imageUrl: body.imageUrl,
+      position: body.position,
     });
 
-    return NextResponse.json(character);
+    return NextResponse.json({
+      id: character._id.toString(),
+      name: character.name,
+      age: character.age,
+      imageUrl: character.imageUrl,
+      position: character.position,
+    });
   } catch (error) {
-    console.error("POST /api/characters error:", error);
-    return NextResponse.json(
-      { error: "Failed to save character" },
-      { status: 500 },
-    );
+    console.error('POST error:', error);
+    return NextResponse.json({ error: 'Failed to save character' }, { status: 500 });
   }
 }
