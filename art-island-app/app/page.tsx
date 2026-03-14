@@ -89,9 +89,9 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="size-full relative overflow-hidden bg-gradient-to-b from-black via-indigo-950 to-indigo-900 flex flex-col items-center justify-center">
+    <div className="size-full relative overflow-hidden bg-white flex flex-col items-center justify-center">
       {/* Stars background */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 hidden">
         {stars.map((star) => (
           <div
             key={star.id}
@@ -108,7 +108,7 @@ export default function LandingPage() {
       </div>
 
       {/* Floating Islands */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none hidden">
         {islands.map((island) => (
           <div
             key={island.id}
@@ -154,10 +154,10 @@ export default function LandingPage() {
 
       {/* Content */}
       <div className="relative z-10 text-center mb-12">
-        <h1 className="text-5xl md:text-7xl font-bold text-white drop-shadow-lg">
+        <h1 className="text-5xl md:text-7xl font-bold text-black drop-shadow-lg">
           Art Island
         </h1>
-        <p className="text-white/70 text-xl mt-3">
+        <p className="text-gray-700 text-xl mt-3">
           Where Your Drawings Come to Life ✨
         </p>
       </div>

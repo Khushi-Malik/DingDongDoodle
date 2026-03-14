@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "motion/react";
-import { Plus, LogOut } from "lucide-react";
+import { Plus, LogOut, MapPin } from "lucide-react";
 import { Character } from "../components/Character";
 import { CharacterDetail } from "../components/CharacterDetail";
 import { UploadModal } from "../components/UploadModal";
+import { NewIslandModal } from "../components/NewIslandModal";
 
 interface CharacterData {
   id: string;
@@ -16,70 +17,56 @@ interface CharacterData {
   position: { x: number; y: number };
 }
 
+interface IslandData {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  border: string;
+  label: string;
+}
+
+const DEFAULT_PLANETS: IslandData[] = [
+  {
+    id: 1,
+    x: 18,
+    y: 52,
+    size: 160,
+    color: "#EEEDFE",
+    border: "#AFA9EC",
+    label: "Planet Luminos",
+  },
+  {
+    id: 2,
+    x: 50,
+    y: 58,
+    size: 130,
+    color: "#E1F5EE",
+    border: "#5DCAA5",
+    label: "Planet Verdara",
+  },
+  {
+    id: 3,
+    x: 78,
+    y: 48,
+    size: 110,
+    color: "#FAEEDA",
+    border: "#EF9F27",
+    label: "Planet Solara",
+  },
+];
+
 export default function App() {
   const router = useRouter();
   const [characters, setCharacters] = useState<CharacterData[]>([]);
   const [selectedCharacter, setSelectedCharacter] =
     useState<CharacterData | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showNewIslandModal, setShowNewIslandModal] = useState(false);
+  const [islands, setIslands] = useState<IslandData[]>(DEFAULT_PLANETS);
+  const [nextIslandId, setNextIslandId] = useState(4);
   const [loading, setLoading] = useState(true);
-
-  const [islands, setIslands] = useState<
-    {
-      id: number;
-      x: number;
-      y: number;
-      size: number;
-      color: string;
-      rotation: number;
-      delay: number;
-    }[]
-  >([]);
-
-  useEffect(() => {
-    setIslands([
-      {
-        id: 1,
-        x: 10,
-        y: 35,
-        size: 120,
-        color: "from-green-600 to-green-700",
-        rotation: 0,
-        delay: 0,
-      },
-      {
-        id: 2,
-        x: 55,
-        y: 45,
-        size: 150,
-        color: "from-emerald-500 to-emerald-700",
-        rotation: 15,
-        delay: 1,
-      },
-      {
-        id: 3,
-        x: 85,
-        y: 30,
-        size: 100,
-        color: "from-teal-600 to-teal-700",
-        rotation: -10,
-        delay: 2,
-      },
-    ]);
-  }, []);
-
-  const stars = useMemo(
-    () =>
-      Array.from({ length: 100 }, (_, i) => ({
-        id: i,
-        width: Math.random() * 3 + 1,
-        height: Math.random() * 3 + 1,
-        top: Math.random() * 70,
-        opacity: Math.random() * 0.7 + 0.3,
-        animationDelay: Math.random() * -120,
-      })),
-    [],
-  );
 
   useEffect(() => {
     loadCharacters();
@@ -112,6 +99,58 @@ export default function App() {
   const handleLogout = async () => {
     await fetch("/api/auth", { method: "DELETE" });
     router.push("/");
+  };
+
+  const getValidIslandPosition = (): { x: number; y: number } => {
+    const minDistance = 25; // Minimum pixel distance between island centers
+    const maxAttempts = 20;
+    let attempt = 0;
+
+    while (attempt < maxAttempts) {
+      const x = Math.random() * 70 + 10; // 10% to 80%
+      const y = Math.random() * 70 + 15; // 15% to 85%
+
+      const isFarEnough = islands.every((island) => {
+        // Convert percentages to approximate pixels (viewport width ~1000px, height ~700px)
+        const x1Px = (x / 100) * 1000;
+        const y1Px = (y / 100) * 700;
+        const x2Px = (island.x / 100) * 1000;
+        const y2Px = (island.y / 100) * 700;
+
+        const distance = Math.sqrt(
+          Math.pow(x1Px - x2Px, 2) + Math.pow(y1Px - y2Px, 2),
+        );
+
+        // Calculate combined radius (size/2) plus buffer
+        const combinedRadius = island.size / 2 + 70;
+        return distance >= combinedRadius;
+      });
+
+      if (isFarEnough) return { x, y };
+      attempt++;
+    }
+
+    // Fallback position
+    return {
+      x: Math.random() * 70 + 10,
+      y: Math.random() * 70 + 15,
+    };
+  };
+
+  const handleAddIsland = (name: string, color: string, border: string) => {
+    const position = getValidIslandPosition();
+    const newIsland: IslandData = {
+      id: nextIslandId,
+      x: position.x,
+      y: position.y,
+      size: 100 + Math.random() * 60, // Size between 100-160
+      color,
+      border,
+      label: name,
+    };
+
+    setIslands((prev) => [...prev, newIsland]);
+    setNextIslandId((prev) => prev + 1);
   };
 
   const getValidCharacterPosition = (): { x: number; y: number } => {
@@ -164,74 +203,37 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="size-full flex items-center justify-center bg-gradient-to-b from-black via-indigo-950 to-indigo-900">
-        <div className="text-2xl text-white drop-shadow-lg">
-          Loading the floating islands... ✨
-        </div>
+      <div className="size-full flex items-center justify-center bg-white">
+        <div className="text-2xl text-gray-500">Loading planets...</div>
       </div>
     );
   }
 
   return (
-    <div className="size-full relative overflow-hidden bg-gradient-to-b from-black via-indigo-950 to-indigo-900">
-      {/* Stars */}
-      <div className="absolute inset-0">
-        {stars.map((star) => (
-          <div
-            key={star.id}
-            className="absolute bg-white rounded-full animate-star-drift"
-            style={{
-              width: star.width + "px",
-              height: star.height + "px",
-              top: star.top + "%",
-              opacity: star.opacity,
-              animationDelay: star.animationDelay + "s",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Floating Islands */}
+    <div className="size-full relative overflow-hidden bg-white">
+      {/* Planets as circles */}
       <div className="absolute inset-0 pointer-events-none">
-        {islands.map((island) => (
+        {islands.map((planet) => (
           <div
-            key={island.id}
-            className="absolute animate-bounce"
-            style={{
-              left: island.x + "%",
-              top: island.y + "%",
-              animationDelay: island.delay + "s",
-            }}
+            key={planet.id}
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${planet.x}%`, top: `${planet.y}%` }}
           >
-            {/* Island shadow */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-2 bg-black/20 rounded-full blur-md" />
-
-            {/* Island body */}
             <div
-              className={`relative bg-gradient-to-b ${island.color} rounded-full shadow-2xl`}
               style={{
-                width: island.size + "px",
-                height: Math.floor(island.size * 0.6) + "px",
-                transform: `rotate(${island.rotation}deg)`,
+                width: planet.size,
+                height: planet.size,
+                borderRadius: "50%",
+                background: planet.color,
+                border: `2px solid ${planet.border}`,
               }}
+            />
+            <p
+              className="text-center text-xs font-medium mt-1"
+              style={{ color: "#888780" }}
             >
-              {/* Grass texture */}
-              <div className="absolute inset-0 rounded-full opacity-30">
-                <div className="absolute top-2 left-4 w-3 h-3 bg-green-300 rounded-full" />
-                <div className="absolute top-3 right-6 w-2 h-2 bg-green-300 rounded-full" />
-                <div className="absolute top-4 left-1/2 w-2 h-2 bg-green-300 rounded-full" />
-              </div>
-
-              {/* Trees/vegetation */}
-              <div className="absolute top-2 left-3 text-lg">🌲</div>
-              <div className="absolute top-1 right-4 text-lg">🌲</div>
-              {island.size > 100 && (
-                <>
-                  <div className="absolute top-2 left-1/2 text-lg">🌳</div>
-                  <div className="absolute bottom-6 right-6 text-base">🍄</div>
-                </>
-              )}
-            </div>
+              {planet.label}
+            </p>
           </div>
         ))}
       </div>
@@ -248,19 +250,29 @@ export default function App() {
       </div>
 
       {/* Add Button */}
-      <button
-        onClick={() => setShowUploadModal(true)}
-        className="fixed top-4 sm:top-6 left-4 sm:left-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 z-10 text-sm sm:text-base"
-      >
-        <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-        <span className="hidden sm:inline">Add Drawing</span>
-        <span className="sm:hidden">Add</span>
-      </button>
+      <div className="fixed top-4 sm:top-6 left-4 sm:left-6 flex gap-2 z-10">
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="bg-purple-500 hover:bg-purple-600 text-white font-medium px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-2 text-sm sm:text-base"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="hidden sm:inline">Add Drawing</span>
+          <span className="sm:hidden">Add</span>
+        </button>
+        <button
+          onClick={() => setShowNewIslandModal(true)}
+          className="bg-green-500 hover:bg-green-600 text-white font-medium px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-2 text-sm sm:text-base"
+        >
+          <MapPin className="w-5 h-5" />
+          <span className="hidden sm:inline">New Island</span>
+          <span className="sm:hidden">Island</span>
+        </button>
+      </div>
 
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="fixed top-4 sm:top-6 right-4 sm:right-6 bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2 rounded-full transition-all flex items-center gap-2 z-10 text-sm"
+        className="fixed top-4 sm:top-6 right-4 sm:right-6 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-4 py-2 rounded-full transition-all flex items-center gap-2 z-10 text-sm"
       >
         <LogOut className="w-4 h-4" />
         <span className="hidden sm:inline">Log Out</span>
@@ -268,19 +280,19 @@ export default function App() {
 
       {/* Title */}
       <div className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 text-center z-10 px-4">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white drop-shadow-lg">
-          Art Island
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-gray-800">
+          Planet Pals
         </h1>
-        <p className="text-white/90 text-xs sm:text-sm md:text-base lg:text-lg mt-1 drop-shadow">
-          Where Your Drawings Come to Life ✨
+        <p className="text-gray-400 text-xs sm:text-sm mt-1">
+          Where your drawings come to life
         </p>
       </div>
 
       {/* Empty State */}
       {characters.length === 0 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center px-4">
-          <p className="text-lg sm:text-xl md:text-2xl text-white/80 drop-shadow">
-            Click "Add Drawing" to bring your art to the floating islands! 🎨
+          <p className="text-lg text-gray-300">
+            Click "Add Drawing" to place your character on a planet
           </p>
         </div>
       )}
@@ -297,6 +309,12 @@ export default function App() {
           <UploadModal
             onClose={() => setShowUploadModal(false)}
             onSubmit={handleAddCharacter}
+          />
+        )}
+        {showNewIslandModal && (
+          <NewIslandModal
+            onClose={() => setShowNewIslandModal(false)}
+            onSubmit={handleAddIsland}
           />
         )}
       </AnimatePresence>

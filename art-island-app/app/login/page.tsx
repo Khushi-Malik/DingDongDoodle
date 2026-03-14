@@ -74,8 +74,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="size-full flex items-center justify-center bg-gradient-to-b from-black via-indigo-950 to-indigo-900">
-      <div className="absolute inset-0">
+    <div className="size-full flex items-center justify-center bg-white">
+      <div className="absolute inset-0 hidden">
         {STARS.map((star) => (
           <div
             key={star.id}
@@ -91,11 +91,11 @@ export default function LoginPage() {
         ))}
       </div>
 
-      <div className="relative z-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
-        <h2 className="text-3xl font-bold text-white text-center mb-2">
+      <div className="relative z-10 bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-sm shadow-lg">
+        <h2 className="text-3xl font-bold text-black text-center mb-2">
           {isSignup ? "Create Account" : "Welcome Back"}
         </h2>
-        <p className="text-white/60 text-center mb-8 text-sm">
+        <p className="text-gray-600 text-center mb-8 text-sm">
           {isSignup
             ? "Sign up to visit the floating islands"
             : "Log in to see your characters"}
@@ -107,7 +107,7 @@ export default function LoginPage() {
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 outline-none focus:border-purple-400 transition-colors"
+            className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-black placeholder-gray-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-colors"
             required
           />
           <input
@@ -115,11 +115,11 @@ export default function LoginPage() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 outline-none focus:border-purple-400 transition-colors"
+            className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 text-black placeholder-gray-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-colors"
             required
           />
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
           <button
             type="submit"
@@ -130,14 +130,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-white/50 text-center mt-6 text-sm">
+        <p className="text-gray-600 text-center mt-6 text-sm">
           {isSignup ? "Already have an account?" : "Don't have an account?"}
           <button
             onClick={() => {
               setIsSignup(!isSignup);
               setError("");
             }}
-            className="text-purple-400 hover:text-purple-300 ml-1 font-medium"
+            className="text-purple-600 hover:text-purple-700 ml-1 font-medium"
           >
             {isSignup ? "Log In" : "Sign Up"}
           </button>
