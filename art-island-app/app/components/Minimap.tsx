@@ -181,6 +181,20 @@ export function Minimap({ islands, characters, panX, panY }: MinimapProps) {
                   />
                 );
               })}
+              {/* User dot — center of minimap */}
+              <div
+                className="absolute rounded-full"
+                style={{
+                  left: minimapWidth / 2 - 4,
+                  top: minimapHeight / 2 - 4,
+                  width: 8,
+                  height: 8,
+                  backgroundColor: "#000000",
+                  border: "1px solid #7C3AED",
+                  pointerEvents: "none",
+                  opacity: 0.8,
+                }}
+              />
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center pointer-events-none">
               Minimap (Click to expand)
@@ -193,7 +207,7 @@ export function Minimap({ islands, characters, panX, panY }: MinimapProps) {
       {isExpanded && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-40 bg-black/60"
             onClick={() => setIsExpanded(false)}
             onPointerDown={(e) => e.stopPropagation()}
             style={{ pointerEvents: "auto" }}
