@@ -1,13 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { AnimatePresence } from 'motion/react';
-import { Plus } from 'lucide-react';
-import { Character } from './components/Character';
-import { CharacterDetail } from './components/CharacterDetail';
-import { UploadModal } from './components/UploadModal';
-import { DatabaseInfo } from './components/DatabaseInfo';
-import { supabase, isSupabaseConfigured, type CharacterRow } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import { AnimatePresence } from "motion/react";
+import { Plus } from "lucide-react";
+import { Character } from "./components/Character";
+import { CharacterDetail } from "./components/CharacterDetail";
+import { UploadModal } from "./components/UploadModal";
+import { DatabaseInfo } from "./components/DatabaseInfo";
+import {
+  supabase,
+  isSupabaseConfigured,
+  type CharacterRow,
+} from "@/lib/supabase";
 
 interface CharacterData {
   id: string;
@@ -19,7 +23,8 @@ interface CharacterData {
 
 export default function HomePage() {
   const [characters, setCharacters] = useState<CharacterData[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null);
+  const [selectedCharacter, setSelectedCharacter] =
+    useState<CharacterData | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -35,14 +40,14 @@ export default function HomePage() {
   const loadCharactersFromLocalStorage = () => {
     try {
       // Check if window is defined (Next.js SSR safety)
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('art-island-characters');
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("art-island-characters");
         if (stored) {
           setCharacters(JSON.parse(stored));
         }
       }
     } catch (error) {
-      console.error('Error loading from localStorage:', error);
+      console.error("Error loading from localStorage:", error);
     } finally {
       setLoading(false);
     }
@@ -50,43 +55,49 @@ export default function HomePage() {
 
   const saveCharactersToLocalStorage = (chars: CharacterData[]) => {
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('art-island-characters', JSON.stringify(chars));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("art-island-characters", JSON.stringify(chars));
       }
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      console.error("Error saving to localStorage:", error);
     }
   };
 
   const loadCharactersFromSupabase = async () => {
     try {
       const { data, error } = await supabase
-        .from('characters')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .from("characters")
+        .select("*")
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
       if (data) {
-        const loadedCharacters: CharacterData[] = data.map((char: CharacterRow) => ({
-          id: char.id,
-          imageUrl: char.image_url,
-          name: char.name,
-          age: char.age,
-          position: { x: char.position_x, y: char.position_y },
-        }));
+        const loadedCharacters: CharacterData[] = data.map(
+          (char: CharacterRow) => ({
+            id: char.id,
+            imageUrl: char.image_url,
+            name: char.name,
+            age: char.age,
+            position: { x: char.position_x, y: char.position_y },
+          }),
+        );
         setCharacters(loadedCharacters);
       }
     } catch (error) {
-      console.error('Error loading characters from Supabase:', error);
-      // Fall back to localStorage if Supabase fails
+      // Silently fall back to localStorage if Supabase fetch fails
+      // This is expected behavior when Supabase is unavailable or during development
       loadCharactersFromLocalStorage();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddCharacter = async (imageFile: File, name: string, age: number) => {
+  const handleAddCharacter = async (
+    imageFile: File,
+    name: string,
+    age: number,
+  ) => {
     if (isSupabaseConfigured) {
       await handleAddCharacterSupabase(imageFile, name, age);
     } else {
@@ -94,7 +105,11 @@ export default function HomePage() {
     }
   };
 
-  const handleAddCharacterLocal = (imageFile: File, name: string, age: number) => {
+  const handleAddCharacterLocal = (
+    imageFile: File,
+    name: string,
+    age: number,
+  ) => {
     try {
       // Generate random position on the island platform
       const x = Math.random() * 70 + 10;
@@ -115,38 +130,56 @@ export default function HomePage() {
       setCharacters(updatedCharacters);
       saveCharactersToLocalStorage(updatedCharacters);
     } catch (error) {
-      console.error('Error adding character locally:', error);
-      alert('Failed to add character. Please try again.');
+      console.error("Error adding character locally:", error);
+      alert("Failed to add character. Please try again.");
     }
   };
 
-  const handleAddCharacterSupabase = async (imageFile: File, name: string, age: number) => {
+  const handleAddCharacterSupabase = async (
+    imageFile: File,
+    name: string,
+    age: number,
+  ) => {
     try {
       // Generate random position on the island platform
       const x = Math.random() * 70 + 10; // 10-80% from left
       const y = 15 + Math.random() * 10; // Slight variation in vertical position
 
-      // Upload image to Supabase Storage
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      // Try to upload image to Supabase Storage
+      let imageUrl: string | null = null;
+      try {
+        const fileExt = imageFile.name.split(".").pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('character-images')
-        .upload(filePath, imageFile);
+        const { error: uploadError } = await supabase.storage
+          .from("character-images")
+          .upload(filePath, imageFile);
 
-      if (uploadError) throw uploadError;
+        if (!uploadError) {
+          // Get public URL for the uploaded image
+          const { data: urlData } = supabase.storage
+            .from("character-images")
+            .getPublicUrl(filePath);
+          imageUrl = urlData.publicUrl;
+        }
+      } catch {
+        // Storage upload failed - will use Data URL fallback
+      }
 
-      // Get public URL for the uploaded image
-      const { data: urlData } = supabase.storage
-        .from('character-images')
-        .getPublicUrl(filePath);
-
-      const imageUrl = urlData.publicUrl;
+      // If storage upload failed, convert image to Data URL
+      if (!imageUrl) {
+        const reader = new FileReader();
+        imageUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
+      }
 
       // Save character data to database
       const { data, error: dbError } = await supabase
-        .from('characters')
+        .from("characters")
         .insert([
           {
             name,
@@ -172,15 +205,17 @@ export default function HomePage() {
 
       setCharacters([...characters, newCharacter]);
     } catch (error) {
-      console.error('Error adding character:', error);
-      alert('Failed to add character. Please try again.');
+      // Silently fall back to local storage
+      handleAddCharacterLocal(imageFile, name, age);
     }
   };
 
   if (loading) {
     return (
       <div className="size-full flex items-center justify-center bg-gradient-to-b from-sky-300 via-sky-200 to-green-200">
-        <div className="text-2xl text-white drop-shadow-lg">Loading your island... 🏝️</div>
+        <div className="text-2xl text-white drop-shadow-lg">
+          Loading your island... 🏝️
+        </div>
       </div>
     );
   }
