@@ -22,24 +22,23 @@ export function TutorialOverlay({ step, onDismiss }: TutorialOverlayProps) {
   return (
     <AnimatePresence>
       {step !== "none" && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-40 pointer-events-auto"
-            onClick={onDismiss}
-          />
-
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onDismiss}
+        >
           {/* Tutorial Box */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white rounded-lg shadow-2xl p-8 max-w-md"
+            exit={{ opacity: 0, scale: 0.8, y: 50 }}
+            transition={{ type: "spring", damping: 25 }}
+            className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">
               {messages[step].title}
             </h2>
             <p className="text-gray-600 mb-6 text-lg">
@@ -47,12 +46,12 @@ export function TutorialOverlay({ step, onDismiss }: TutorialOverlayProps) {
             </p>
             <button
               onClick={onDismiss}
-              className="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 rounded-lg transition-colors"
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl"
             >
               Got it!
             </button>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

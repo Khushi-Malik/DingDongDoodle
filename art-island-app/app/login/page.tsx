@@ -136,6 +136,8 @@ export default function LoginPage() {
             onClick={() => {
               setIsSignup(!isSignup);
               setError("");
+              setUsername("");
+              setPassword("");
             }}
             className="text-purple-600 hover:text-purple-700 ml-1 font-medium"
           >

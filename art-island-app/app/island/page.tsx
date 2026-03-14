@@ -21,7 +21,6 @@ interface CharacterData {
   name: string;
   age: number;
   position: { x: number; y: number };
-  islandId?: number;
 }
 
 interface IslandData {
@@ -33,8 +32,6 @@ interface IslandData {
   border: string;
   label: string;
 }
-
-// Islands will be loaded from database
 
 export default function App() {
   const router = useRouter();
@@ -63,16 +60,7 @@ export default function App() {
         return;
       }
       if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setCharacters(
-        data.map((char: any) => ({
-          id: char.id,
-          imageUrl: char.imageUrl,
-          name: char.name,
-          age: char.age,
-          position: char.position,
-        })),
-      );
+      setCharacters(await res.json());
     } catch (error) {
       console.error("Error loading characters:", error);
     } finally {
@@ -90,12 +78,13 @@ export default function App() {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setIslands(data);
-      if (data.length > 0) {
-        setNextIslandId(Math.max(...data.map((i: any) => i.id)) + 1);
-      } else {
-        // First time user - show tutorial
+      setNextIslandId(
+        data.length > 0 ? Math.max(...data.map((i: any) => i.id)) + 1 : 1,
+      );
+
+      if (data.length === 0) {
         setTutorialStep("create-island");
-        setShowNewIslandModal(true);
+        setShowTutorialOverlay(true);
       }
     } catch (error) {
       console.error("Error loading islands:", error);
@@ -107,28 +96,10 @@ export default function App() {
     router.push("/");
   };
 
-  const getValidIslandPosition = (): { x: number; y: number } => {
-    const minDistance = 25;
-    const maxAttempts = 20;
-    let attempt = 0;
-    while (attempt < maxAttempts) {
-      const x = Math.random() * 70 + 10;
-      const y = Math.random() * 70 + 15;
-      const isFarEnough = islands.every((island) => {
-        const x1Px = (x / 100) * 1000;
-        const y1Px = (y / 100) * 700;
-        const x2Px = (island.x / 100) * 1000;
-        const y2Px = (island.y / 100) * 700;
-        const distance = Math.sqrt(
-          Math.pow(x1Px - x2Px, 2) + Math.pow(y1Px - y2Px, 2),
-        );
-        return distance >= island.size / 2 + 70;
-      });
-      if (isFarEnough) return { x, y };
-      attempt++;
-    }
-    return { x: Math.random() * 70 + 10, y: Math.random() * 70 + 15 };
-  };
+  const getValidIslandPosition = (): { x: number; y: number } => ({
+    x: Math.random() * 70 + 10,
+    y: Math.random() * 70 + 15,
+  });
 
   const handleAddIsland = async (
     name: string,
@@ -136,11 +107,9 @@ export default function App() {
     border: string,
   ) => {
     try {
-      const position = getValidIslandPosition();
       const newIsland: IslandData = {
         id: nextIslandId,
-        x: position.x,
-        y: position.y,
+        ...getValidIslandPosition(),
         size: 100 + Math.random() * 60,
         color,
         border,
@@ -158,10 +127,9 @@ export default function App() {
       setNextIslandId((prev) => prev + 1);
       setShowNewIslandModal(false);
 
-      // Advance tutorial
       if (tutorialStep === "create-island") {
         setTutorialStep("draw-maple");
-        setShowTutorialOverlay(true); // Show the second overlay
+        setShowTutorialOverlay(true);
       }
     } catch (error) {
       console.error("Error adding island:", error);
@@ -169,37 +137,9 @@ export default function App() {
     }
   };
 
-  const getValidCharacterPosition = (
-    islandId?: number,
-  ): { x: number; y: number } => {
-    if (islandId) {
-      // Position character on the selected island
-      const island = islands.find((i) => i.id === islandId);
-      if (island) {
-        // Place character randomly within the island area
-        const radius = island.size / 3;
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * radius;
-        return {
-          x: island.x + (Math.cos(angle) * distance) / 10,
-          y: island.y + (Math.sin(angle) * distance) / 10,
-        };
-      }
-    }
-    // Default random position
-    const minDistance = 8;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const x = Math.random() * 30 + 35;
-      const y = 30 + Math.random() * 2;
-      const isFarEnough = characters.every((char) => {
-        const distance = Math.sqrt(
-          Math.pow(x - char.position.x, 2) + Math.pow(y - char.position.y, 2),
-        );
-        return distance >= minDistance;
-      });
-      if (isFarEnough) return { x, y };
-    }
-    return { x: Math.random() * 30 + 35, y: 30 + Math.random() * 2 };
+  const getCharacterPosition = (islandId: number): { x: number; y: number } => {
+    const island = islands.find((i) => i.id === islandId);
+    return island ? { x: island.x, y: island.y } : { x: 50, y: 50 };
   };
 
   const handleDrawingSave = (dataUrl: string) => {
@@ -214,7 +154,7 @@ export default function App() {
     islandId: number,
   ) => {
     try {
-      const position = getValidCharacterPosition(islandId);
+      const position = getCharacterPosition(islandId);
 
       let imageUrl = pendingDrawing;
       if (!imageUrl && imageFile) {
@@ -243,17 +183,11 @@ export default function App() {
     }
   };
 
-  const closeAll = () => {
-    setModalState("none");
-    setPendingDrawing(null);
-  };
-
   const handleTutorialDismiss = () => {
     if (tutorialStep === "create-island") {
-      // Hide overlay but keep tutorial step so island creation can advance it
       setShowTutorialOverlay(false);
+      setShowNewIslandModal(true);
     } else if (tutorialStep === "draw-maple") {
-      // Open draw/upload choice modal and close overlay
       setModalState("choose");
       setShowTutorialOverlay(false);
     }
@@ -367,7 +301,10 @@ export default function App() {
           <ChooseInputModal
             onChooseDraw={() => setModalState("draw")}
             onChooseUpload={() => setModalState("upload")}
-            onClose={closeAll}
+            onClose={() => {
+              setModalState("none");
+              setPendingDrawing(null);
+            }}
           />
         )}
 
