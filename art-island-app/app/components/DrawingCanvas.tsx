@@ -44,17 +44,18 @@ export function DrawingCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, height);
-    
+
+    // Clear canvas with transparent background
+    ctx.clearRect(0, 0, width, height);
+
     // Draw dotted goose guide if in tutorial
     if (tutorialHint && tutorialHint.includes("goose")) {
       drawGooseGuide(ctx);
     }
-    
-    const initial = canvas.toDataURL();
+
+    const initial = canvas.toDataURL("image/png");
     setHistory([initial]);
     setHistoryIndex(0);
   }, [width, height, tutorialHint]);
@@ -63,37 +64,42 @@ export function DrawingCanvas({
     ctx.strokeStyle = "#D3D1C7";
     ctx.setLineDash([5, 5]); // Dotted line
     ctx.lineWidth = 2;
-    
+
     const centerX = width / 2;
     const centerY = height / 2;
-    
+
     // Draw goose body (large circle)
     ctx.beginPath();
     ctx.arc(centerX, centerY + 20, 50, 0, Math.PI * 2);
     ctx.stroke();
-    
+
     // Draw goose neck (curved line)
     ctx.beginPath();
     ctx.moveTo(centerX, centerY - 30);
-    ctx.quadraticCurveTo(centerX + 20, centerY - 60, centerX + 15, centerY - 90);
+    ctx.quadraticCurveTo(
+      centerX + 20,
+      centerY - 60,
+      centerX + 15,
+      centerY - 90,
+    );
     ctx.stroke();
-    
+
     // Draw goose head (small circle)
     ctx.beginPath();
     ctx.arc(centerX + 15, centerY - 100, 20, 0, Math.PI * 2);
     ctx.stroke();
-    
+
     // Draw goose beak
     ctx.beginPath();
     ctx.moveTo(centerX + 32, centerY - 100);
     ctx.lineTo(centerX + 55, centerY - 105);
     ctx.stroke();
-    
+
     // Draw wing
     ctx.beginPath();
     ctx.arc(centerX - 40, centerY + 10, 25, 0, Math.PI, true);
     ctx.stroke();
-    
+
     ctx.setLineDash([]); // Reset line dash
   };
 
@@ -190,7 +196,13 @@ export function DrawingCanvas({
         0,
         Math.PI * 2,
       );
-      ctx.fillStyle = tool === "eraser" ? "#ffffff" : color;
+      if (tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "rgba(0,0,0,1)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = color;
+      }
       ctx.fill();
     },
     [tool, color, size, getPos, floodFill, saveState],
@@ -207,7 +219,13 @@ export function DrawingCanvas({
       ctx.beginPath();
       ctx.moveTo(lastPos.current.x, lastPos.current.y);
       ctx.lineTo(pos.x, pos.y);
-      ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+      if (tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.strokeStyle = color;
+      }
       ctx.lineWidth = tool === "eraser" ? size * 2 : size;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -241,8 +259,7 @@ export function DrawingCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, height);
+    ctx.clearRect(0, 0, width, height);
     saveState();
   }, [width, height, saveState]);
 
@@ -408,7 +425,14 @@ export function DrawingCanvas({
       )}
       <div
         className="rounded-xl overflow-hidden border border-gray-100 w-full"
-        style={{ cursor: cursorStyle }}
+        style={{
+          cursor: cursorStyle,
+          backgroundImage:
+            "linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5), linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5)",
+          backgroundSize: "20px 20px",
+          backgroundPosition: "0 0, 10px 10px",
+          backgroundColor: "#f5f5f5",
+        }}
       >
         <canvas
           ref={canvasRef}

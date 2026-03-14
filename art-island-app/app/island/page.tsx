@@ -401,8 +401,8 @@ export default function App() {
               <div
                 style={{
                   width: planet.size,
-                  height: planet.size,
-                  borderRadius: "50%",
+                  height: planet.size - 500,
+                  borderRadius: "70%",
                   background: planet.color,
                   border: `2px solid ${planet.border}`,
                   overflow: "hidden",

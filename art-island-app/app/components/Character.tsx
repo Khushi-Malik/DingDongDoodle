@@ -34,14 +34,14 @@ export function Character({
       onClick={onClick}
     >
       <div className="flex flex-col items-center">
-        <div className="w-24 h-24 bg-white rounded-lg shadow-lg overflow-hidden border-4 border-white">
+        <div className="w-24 h-24 overflow-hidden">
           <img
             src={imageUrl}
             alt={name}
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="mt-2 bg-white/90 px-3 py-1 rounded-full shadow-md">
+        <div className="mt-2 px-3 py-1 rounded-full">
           <p className="text-sm font-medium text-gray-800">{name}</p>
         </div>
       </div>
