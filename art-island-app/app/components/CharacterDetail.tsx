@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { motion } from "motion/react";
+import { X } from "lucide-react";
 
 interface CharacterDetailProps {
   imageUrl: string;
@@ -10,25 +10,51 @@ interface CharacterDetailProps {
   onClose: () => void;
 }
 
-function getAgeDisplay(ageInDays: number): string {
-  if (ageInDays === 0) {
-    return '0 days old';
+function getAgeDisplay(ageValue: number): string {
+  // ageValue is now the creation timestamp (milliseconds since epoch)
+  let ageInDays: number;
+
+  if (ageValue < 100000000) {
+    // Old format: age is in years (realistic ages are 0-150)
+    ageInDays = ageValue * 365.25;
+  } else {
+    // New format: age is a timestamp, calculate dynamically from now
+    const now = new Date().getTime();
+    const ageInMs = now - ageValue;
+    ageInDays = Math.floor(ageInMs / (1000 * 86400));
   }
-  
+
+  const roundedDays = Math.floor(ageInDays);
+
+  // Sanity check: if age is > 100,000 years, it's corrupted data
+  if (roundedDays > 36500000) {
+    return "I was created today";
+  }
+
+  if (roundedDays === 0) {
+    return "I was created today";
+  }
+
   const years = Math.floor(ageInDays / 365.25);
+
   if (years > 0) {
-    return `${years} year${years > 1 ? 's' : ''} old`;
+    return `${years} year${years > 1 ? "s" : ""} old`;
   }
-  
+
   const months = Math.floor(ageInDays / 30.44);
   if (months > 0) {
-    return `${months} month${months > 1 ? 's' : ''} old`;
+    return `${months} month${months > 1 ? "s" : ""} old`;
   }
-  
-  return `${ageInDays} day${ageInDays > 1 ? 's' : ''} old`;
+
+  return `${roundedDays} day${roundedDays !== 1 ? "s" : ""} old`;
 }
 
-export function CharacterDetail({ imageUrl, name, age, onClose }: CharacterDetailProps) {
+export function CharacterDetail({
+  imageUrl,
+  name,
+  age,
+  onClose,
+}: CharacterDetailProps) {
   const ageDisplay = getAgeDisplay(age);
   return (
     <motion.div
@@ -43,7 +69,7 @@ export function CharacterDetail({ imageUrl, name, age, onClose }: CharacterDetai
         initial={{ scale: 0.8, y: 50 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.8, y: 50 }}
-        transition={{ type: 'spring', damping: 25 }}
+        transition={{ type: "spring", damping: 25 }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -72,8 +98,8 @@ export function CharacterDetail({ imageUrl, name, age, onClose }: CharacterDetai
               <div className="absolute left-0 top-1/2 -translate-x-4 -translate-y-1/2 w-0 h-0 border-t-[15px] border-t-transparent border-r-[20px] border-r-purple-100 border-b-[15px] border-b-transparent" />
 
               <p className="text-2xl md:text-3xl font-bold text-gray-800 leading-relaxed">
-                Hi! My name is <span className="text-purple-600">{name}</span> and I am{' '}
-                <span className="text-pink-600">{ageDisplay}</span>!
+                Hi! My name is <span className="text-purple-600">{name}</span>{" "}
+                and I am <span className="text-pink-600">{ageDisplay}</span>!
               </p>
             </motion.div>
           </div>

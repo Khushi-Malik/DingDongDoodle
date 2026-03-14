@@ -42,20 +42,13 @@ export function UploadModal({
     }
   };
 
-  const calculateArtAge = (dateString: string): number => {
-    const createdDate = new Date(dateString);
-    const today = new Date();
-    const ageInMs = today.getTime() - createdDate.getTime();
-    const ageInDays = Math.floor(ageInMs / (1000 * 60 * 60 * 24));
-    return Math.max(0, ageInDays);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Allow submission if we have an image (either from file or preview) and required fields
     if ((imageFile || previewImageUrl) && name && creationDate) {
-      const artAge = calculateArtAge(creationDate);
-      onSubmit(imageFile, name, artAge, selectedIslandId);
+      // Store the creation date as a timestamp (milliseconds since epoch)
+      const creationTimestamp = new Date(creationDate).getTime();
+      onSubmit(imageFile, name, creationTimestamp, selectedIslandId);
       onClose();
     }
   };
