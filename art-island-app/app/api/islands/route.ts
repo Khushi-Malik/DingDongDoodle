@@ -100,3 +100,40 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const userId = await getUserId();
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    await connectDB();
+    const body = await request.json();
+
+    const island = await Island.findOneAndUpdate(
+      { userId, id: body.id },
+      { x: body.x, y: body.y },
+      { new: true },
+    );
+
+    if (!island) {
+      return NextResponse.json({ error: "Island not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      id: island.id,
+      x: island.x,
+      y: island.y,
+      size: island.size,
+      color: island.color,
+      border: island.border,
+      label: island.label,
+    });
+  } catch (error) {
+    console.error("PUT error:", error);
+    return NextResponse.json(
+      { error: "Failed to update island" },
+      { status: 500 },
+    );
+  }
+}
