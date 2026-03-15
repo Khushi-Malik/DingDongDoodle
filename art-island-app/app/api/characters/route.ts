@@ -19,15 +19,17 @@ const characterSchema = new mongoose.Schema({
   imageUrl: String,
   position: { x: Number, y: Number },
   islandId: Number,
-  joints: { type: mongoose.Schema.Types.Mixed, default: null },
-  riggedAt: { type: Date, default: null },
-  // Memories: short life facts / story events the character has experienced
+  joints: { type: mongoose.Schema.Types.Mixed, default: null }, // ← add
+  riggedAt: { type: Date, default: null }, // ← add
+  personality: { type: mongoose.Schema.Types.Mixed, default: null },
   memories: { type: [memorySchema], default: [] },
   createdAt: { type: Date, default: Date.now },
 });
 
 const Character =
   mongoose.models.Character || mongoose.model("Character", characterSchema);
+// delete (mongoose.models as any).Character;
+// const Character = mongoose.model("Character", characterSchema);
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -108,6 +110,8 @@ export async function POST(request: Request) {
     await connectDB();
     const body = await request.json();
 
+    console.log(body);
+
     const character = await Character.create({
       userId,
       name: body.name,
@@ -116,9 +120,19 @@ export async function POST(request: Request) {
       position: body.position,
       islandId: body.islandId,
       joints: body.joints ?? null,
-      memories: [],
+       personality: body.personality,
+       memories: [],
     });
 
+    // return NextResponse.json({
+    //   id: character._id.toString(),
+    //   name: character.name,
+    //   age: character.age,
+    //   imageUrl: character.imageUrl,
+    //   position: character.position,
+    //   joints: body.joints ?? null,
+    //   islandId: character.islandId,
+    // });
     return NextResponse.json(serializeCharacter(character));
   } catch (error) {
     console.error("POST /api/characters error:", error);
