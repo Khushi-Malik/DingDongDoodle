@@ -26,6 +26,8 @@ export function Character({
   direction = 1,
   onClick,
 }: CharacterProps) {
+  const visualTop = Math.max(0, position.y - 12);
+
   const anim = (() => {
     switch (animationMode) {
       case "walk":
@@ -73,7 +75,7 @@ export function Character({
       data-no-pan="true"
       style={{
         left: `${position.x}%`,
-        top: `${position.y}%`,
+        top: `${visualTop}%`,
         transform: "translate(-50%, -50%)",
       }}
       initial={{ scale: 0, y: -100 }}
