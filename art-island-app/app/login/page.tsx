@@ -116,6 +116,13 @@ export default function LoginPage() {
           className="object-contain"
         />
         <Image
+          src="/cow.png"
+          alt="Cow"
+          width={150}
+          height={150}
+          className="object-contain -translate-y-3"
+        />
+        <Image
           src="/shark.png"
           alt="Shark"
           width={120}
@@ -130,20 +137,6 @@ export default function LoginPage() {
           className="object-contain"
         />
         <Image
-          src="/orca.png"
-          alt="Orca"
-          width={120}
-          height={120}
-          className="object-contain"
-        />
-        <Image
-          src="/cow.png"
-          alt="Cow"
-          width={120}
-          height={120}
-          className="object-contain"
-        />
-        <Image
           src="/octopus.png"
           alt="Octopus"
           width={120}
@@ -153,6 +146,13 @@ export default function LoginPage() {
         <Image
           src="/dino.png"
           alt="Dino"
+          width={120}
+          height={120}
+          className="object-contain"
+        />
+        <Image
+          src="/orca.png"
+          alt="Orca"
           width={120}
           height={120}
           className="object-contain"
