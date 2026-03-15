@@ -488,10 +488,10 @@ export default function App() {
       {/* Title */}
       <div className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 text-center z-10 px-4">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-gray-800">
-          Art Island
+          Ding Dong Doodle
         </h1>
         <p className="text-gray-400 text-xs sm:text-sm mt-1">
-          Where your drawings come to life
+          Draw. Dream. Discover.
         </p>
       </div>
 
