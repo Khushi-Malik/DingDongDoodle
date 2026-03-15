@@ -178,7 +178,6 @@ export function Minimap({ islands, characters, panX, panY, zoom }: MinimapProps)
                       border: "1px solid #6366f1",
                       pointerEvents: "none",
                     }}
-                    title={character.name}
                   />
                 );
               })}
