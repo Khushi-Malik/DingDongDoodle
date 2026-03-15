@@ -3,39 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STARS = [
-  { id: 0, width: 2, height: 2, top: 5, left: 10, opacity: 0.8 },
-  { id: 1, width: 1, height: 1, top: 12, left: 25, opacity: 0.6 },
-  { id: 2, width: 3, height: 3, top: 8, left: 40, opacity: 0.9 },
-  { id: 3, width: 1, height: 1, top: 20, left: 55, opacity: 0.5 },
-  { id: 4, width: 2, height: 2, top: 6, left: 70, opacity: 0.7 },
-  { id: 5, width: 1, height: 1, top: 15, left: 85, opacity: 0.8 },
-  { id: 6, width: 2, height: 2, top: 30, left: 5, opacity: 0.6 },
-  { id: 7, width: 3, height: 3, top: 25, left: 20, opacity: 0.9 },
-  { id: 8, width: 1, height: 1, top: 35, left: 35, opacity: 0.5 },
-  { id: 9, width: 2, height: 2, top: 22, left: 50, opacity: 0.7 },
-  { id: 10, width: 1, height: 1, top: 40, left: 65, opacity: 0.6 },
-  { id: 11, width: 2, height: 2, top: 18, left: 80, opacity: 0.8 },
-  { id: 12, width: 3, height: 3, top: 45, left: 12, opacity: 0.7 },
-  { id: 13, width: 1, height: 1, top: 50, left: 30, opacity: 0.5 },
-  { id: 14, width: 2, height: 2, top: 38, left: 45, opacity: 0.9 },
-  { id: 15, width: 1, height: 1, top: 55, left: 60, opacity: 0.6 },
-  { id: 16, width: 2, height: 2, top: 42, left: 75, opacity: 0.8 },
-  { id: 17, width: 3, height: 3, top: 10, left: 92, opacity: 0.7 },
-  { id: 18, width: 1, height: 1, top: 60, left: 8, opacity: 0.5 },
-  { id: 19, width: 2, height: 2, top: 28, left: 90, opacity: 0.9 },
-  { id: 20, width: 1, height: 1, top: 3, left: 33, opacity: 0.6 },
-  { id: 21, width: 2, height: 2, top: 48, left: 88, opacity: 0.7 },
-  { id: 22, width: 3, height: 3, top: 32, left: 58, opacity: 0.8 },
-  { id: 23, width: 1, height: 1, top: 58, left: 42, opacity: 0.5 },
-  { id: 24, width: 2, height: 2, top: 14, left: 15, opacity: 0.9 },
-  { id: 25, width: 1, height: 1, top: 62, left: 22, opacity: 0.6 },
-  { id: 26, width: 2, height: 2, top: 4, left: 62, opacity: 0.7 },
-  { id: 27, width: 3, height: 3, top: 52, left: 78, opacity: 0.8 },
-  { id: 28, width: 1, height: 1, top: 16, left: 48, opacity: 0.5 },
-  { id: 29, width: 2, height: 2, top: 36, left: 95, opacity: 0.9 },
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const [isSignup, setIsSignup] = useState(false);
@@ -75,22 +42,13 @@ export default function LoginPage() {
 
   return (
     <div className="size-full flex items-center justify-center bg-white">
-      <div className="absolute inset-0 hidden">
-        {STARS.map((star) => (
-          <div
-            key={star.id}
-            className="absolute bg-white rounded-full"
-            style={{
-              width: star.width + "px",
-              height: star.height + "px",
-              top: star.top + "%",
-              left: star.left + "%",
-              opacity: star.opacity,
-            }}
-          />
-        ))}
-      </div>
-
+      {/* Back button - top left */}
+      <button
+        onClick={() => router.push("/")}
+        className="absolute top-4 left-4 bg-white border border-gray-200 shadow-sm text-gray-600 hover:text-gray-900 text-sm flex items-center gap-1 px-3 py-2 rounded-lg hover:-translate-y-0.5 transition-all"
+      >
+        ← Back
+      </button>
       <div className="relative z-10 bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-sm shadow-lg">
         <h2 className="text-3xl font-bold text-black text-center mb-2">
           {isSignup ? "Create Account" : "Welcome Back"}

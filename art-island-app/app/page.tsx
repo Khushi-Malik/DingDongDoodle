@@ -40,56 +40,27 @@ export default function LandingPage() {
     );
 
     setIslands([
-      {
-        id: 1,
-        x: 15,
-        y: 40,
-        size: 120,
-        color: "from-green-600 to-green-700",
-        rotation: 0,
-        delay: 0,
-      },
-      {
-        id: 2,
-        x: 50,
-        y: 50,
-        size: 150,
-        color: "from-emerald-500 to-emerald-700",
-        rotation: 15,
-        delay: 1,
-      },
-      {
-        id: 3,
-        x: 80,
-        y: 35,
-        size: 100,
-        color: "from-teal-600 to-teal-700",
-        rotation: -10,
-        delay: 2,
-      },
-      {
-        id: 4,
-        x: 28,
-        y: 65,
-        size: 90,
-        color: "from-green-700 to-green-800",
-        rotation: 5,
-        delay: 3,
-      },
-      {
-        id: 5,
-        x: 65,
-        y: 70,
-        size: 110,
-        color: "from-emerald-600 to-emerald-800",
-        rotation: -20,
-        delay: 4,
-      },
+      { id: 1, x: 15, y: 40, size: 120, color: "from-green-600 to-green-700", rotation: 0, delay: 0 },
+      { id: 2, x: 50, y: 50, size: 150, color: "from-emerald-500 to-emerald-700", rotation: 15, delay: 1 },
+      { id: 3, x: 80, y: 35, size: 100, color: "from-teal-600 to-teal-700", rotation: -10, delay: 2 },
+      { id: 4, x: 28, y: 65, size: 90, color: "from-green-700 to-green-800", rotation: 5, delay: 3 },
+      { id: 5, x: 65, y: 70, size: 110, color: "from-emerald-600 to-emerald-800", rotation: -20, delay: 4 },
     ]);
   }, []);
 
   return (
-    <div className="size-full relative overflow-hidden bg-white flex flex-col items-center justify-center">
+    <div
+      className="size-full relative overflow-hidden flex flex-col items-center justify-center"
+      style={{
+        backgroundImage: "url('/image.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Subtle overlay to keep text readable */}
+      <div className="absolute inset-0 bg-white/40" />
+
       {/* Stars background */}
       <div className="absolute inset-0 hidden">
         {stars.map((star) => (
@@ -107,67 +78,23 @@ export default function LandingPage() {
         ))}
       </div>
 
-      {/* Floating Islands */}
-      <div className="absolute inset-0 pointer-events-none hidden">
-        {islands.map((island) => (
-          <div
-            key={island.id}
-            className="absolute animate-bounce"
-            style={{
-              left: island.x + "%",
-              top: island.y + "%",
-              animationDelay: island.delay + "s",
-            }}
-          >
-            {/* Island shadow */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-2 bg-black/20 rounded-full blur-md" />
-
-            {/* Island body */}
-            <div
-              className={`relative w-${island.size} h-${Math.floor(island.size * 0.6)} bg-gradient-to-b ${island.color} rounded-full shadow-2xl`}
-              style={{
-                width: island.size + "px",
-                height: Math.floor(island.size * 0.6) + "px",
-                transform: `rotate(${island.rotation}deg)`,
-              }}
-            >
-              {/* Grass texture */}
-              <div className="absolute inset-0 rounded-full opacity-30">
-                <div className="absolute top-2 left-4 w-3 h-3 bg-green-300 rounded-full" />
-                <div className="absolute top-3 right-6 w-2 h-2 bg-green-300 rounded-full" />
-                <div className="absolute top-4 left-1/2 w-2 h-2 bg-green-300 rounded-full" />
-              </div>
-
-              {/* Trees/vegetation */}
-              <div className="absolute top-2 left-3 text-lg">🌲</div>
-              <div className="absolute top-1 right-4 text-lg">🌲</div>
-              {island.size > 100 && (
-                <>
-                  <div className="absolute top-2 left-1/2 text-lg">🌳</div>
-                  <div className="absolute bottom-6 right-6 text-base">🍄</div>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Content */}
       <div className="relative z-10 text-center mb-12">
-        <h1 className="text-5xl md:text-7xl font-bold text-black drop-shadow-lg">
-          Art Island
-        </h1>
-        <p className="text-gray-700 text-xl mt-3">
-          Where Your Drawings Come to Life ✨
-        </p>
+        <div className="bg-white/70 backdrop-blur-sm px-24 py-6 shadow-lg flex flex-col items-center gap-6 rounded">
+          <h1 className="text-5xl md:text-7xl font-bold text-black drop-shadow-lg">
+            Art Island
+          </h1>
+          <p className="text-gray-700 text-xl mt-2">
+            Where Your Drawings Come to Life :D
+          </p>
+          <button
+            onClick={() => router.push("/login")}
+            className="bg-black text-white font-bold mt-5 px-10 py-4 text-xl rounded hover:-translate-y-1 transition-transform"
+          >
+            Explore
+          </button>
+        </div>
       </div>
-
-      <button
-        onClick={() => router.push("/login")}
-        className="relative z-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold px-10 py-4 rounded-full text-xl shadow-lg hover:shadow-pink-500/40 hover:scale-105 transition-all"
-      >
-        Visit the Islands 🏝️
-      </button>
     </div>
   );
 }
