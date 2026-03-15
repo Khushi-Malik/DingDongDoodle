@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -102,6 +103,17 @@ export default function LoginPage() {
             {isSignup ? "Log In" : "Sign Up"}
           </button>
         </p>
+
+        {/* Duck image at the bottom */}
+        <div className="flex justify-center mt-6">
+          <Image
+            src="/duck.png"
+            alt="Duck"
+            width={80}
+            height={80}
+            className="object-contain"
+          />
+        </div>
       </div>
     </div>
   );
