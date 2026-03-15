@@ -150,6 +150,27 @@ export default function LoginPage() {
           height={120}
           className="object-contain"
         />
+        <Image
+          src="/dino.png"
+          alt="Dino"
+          width={120}
+          height={120}
+          className="object-contain"
+        />
+        <Image
+          src="/elephant.png"
+          alt="Elephant"
+          width={120}
+          height={120}
+          className="object-contain"
+        />
+        <Image
+          src="/otter.png"
+          alt="Otter"
+          width={120}
+          height={120}
+          className="object-contain"
+        />
       </div>
     </div>
   );
