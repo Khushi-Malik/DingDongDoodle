@@ -449,13 +449,13 @@ export default function App() {
               <div
                 style={{
                   width: planet.size,
-                  height: planet.size,
+                  height: planet.size * 0.4, // reduce height to clip the empty bottom space
                   overflow: "hidden",
                   position: "relative",
                   backgroundImage: "url('/island.png')",
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",
-                  backgroundPosition: "center",
+                  backgroundPosition: "center top",
                 }}
               >
                 {(islandCharacterLayouts[planet.id] ?? []).map((character) => (
