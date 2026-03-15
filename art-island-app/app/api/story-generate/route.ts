@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
 
 type CharacterInput = {
+  id: string;
   name: string;
   age: number;
   memories?: Array<{ text: string }>;
+  personality?: {
+    catchphrase?: string;
+    traits?: string[];
+    dailyActivity?: string;
+    favoriteThing?: string;
+  } | null;
 };
 
 type CohereMessagePart = {
   type?: string;
   text?: string;
+};
+
+type MaturationUpdate = {
+  characterId: string;
+  name: string;
+  newMemory: string;
+  personalityDelta?: {
+    catchphrase?: string;
+    traits?: string[];
+    dailyActivity?: string;
+    favoriteThing?: string;
+  };
 };
 
 function extractCohereText(data: unknown): string {
@@ -46,6 +65,136 @@ function extractCohereText(data: unknown): string {
   return "";
 }
 
+function parseJsonArray(text: string): unknown[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const direct = (() => {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return null;
+    }
+  })();
+  if (direct) return direct;
+
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (codeBlockMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  const firstBracket = trimmed.indexOf("[");
+  const lastBracket = trimmed.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      const parsed = JSON.parse(trimmed.slice(firstBracket, lastBracket + 1));
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+async function generateMaturationUpdates(params: {
+  apiKey: string;
+  characters: CharacterInput[];
+  title: string;
+  content: string;
+  concept: string;
+}): Promise<MaturationUpdate[]> {
+  const { apiKey, characters, title, content, concept } = params;
+
+  const characterContext = characters.map((c) => ({
+    id: c.id,
+    name: c.name,
+    memories: c.memories?.map((m) => m.text).filter(Boolean) ?? [],
+    personality: c.personality ?? {},
+  }));
+
+  const prompt = `You are updating child character growth after a bedtime story.
+Return ONLY valid JSON array with one object per character.
+
+Input characters:
+${JSON.stringify(characterContext, null, 2)}
+
+Story title: ${title}
+Story lesson: ${concept}
+Story content:
+${content}
+
+Output format strictly:
+[
+  {
+    "characterId": "<id>",
+    "name": "<name>",
+    "newMemory": "one short memory sentence",
+    "personalityDelta": {
+      "traits": ["max 2 short traits"],
+      "dailyActivity": "optional short phrase",
+      "favoriteThing": "optional short phrase",
+      "catchphrase": "optional short phrase"
+    }
+  }
+]
+
+Rules:
+- Keep updates warm, age-appropriate, and specific to the story.
+- Do not remove existing traits/memories.
+- Keep each field concise.`;
+
+  const res = await fetch("https://api.cohere.com/v2/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "command-a-reasoning-08-2025",
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!res.ok) return [];
+  const data = await res.json();
+  const text = extractCohereText(data);
+  const parsed = parseJsonArray(text);
+
+  return parsed
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .map((item) => {
+      const personalityDeltaRaw =
+        item.personalityDelta && typeof item.personalityDelta === "object"
+          ? (item.personalityDelta as Record<string, unknown>)
+          : {};
+      const traitsRaw = Array.isArray(personalityDeltaRaw.traits)
+        ? (personalityDeltaRaw.traits as unknown[]).filter(
+            (t): t is string => typeof t === "string" && t.trim().length > 0
+          )
+        : [];
+
+      return {
+        characterId: String(item.characterId || "").trim(),
+        name: String(item.name || "").trim(),
+        newMemory: String(item.newMemory || "").trim(),
+        personalityDelta: {
+          traits: traitsRaw.slice(0, 2),
+          dailyActivity: String(personalityDeltaRaw.dailyActivity || "").trim(),
+          favoriteThing: String(personalityDeltaRaw.favoriteThing || "").trim(),
+          catchphrase: String(personalityDeltaRaw.catchphrase || "").trim(),
+        },
+      };
+    })
+    .filter((u) => u.characterId && u.newMemory);
+}
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.COHERE_API_KEY;
@@ -74,8 +223,17 @@ export async function POST(request: Request) {
           ?.map((memory) => memory.text)
           .filter(Boolean)
           .join(", ");
+        const traits = character.personality?.traits?.join(", ") || "";
+        const dailyActivity = character.personality?.dailyActivity || "";
+        const favoriteThing = character.personality?.favoriteThing || "";
+        const catchphrase = character.personality?.catchphrase || "";
+
         return `${character.name} (age ${character.age})${
           memories ? `, who ${memories}` : ""
+        }${traits ? `, traits: ${traits}` : ""}${
+          dailyActivity ? `, daily activity: ${dailyActivity}` : ""
+        }${favoriteThing ? `, favorite thing: ${favoriteThing}` : ""}${
+          catchphrase ? `, catchphrase: \"${catchphrase}\"` : ""
         }`;
       })
       .join("; ");
@@ -156,7 +314,15 @@ Guidelines:
           .trim()
       : raw.trim();
 
-    return NextResponse.json({ title, content });
+    const maturationUpdates = await generateMaturationUpdates({
+      apiKey,
+      characters,
+      title,
+      content,
+      concept: conceptLabel || "kindness",
+    });
+
+    return NextResponse.json({ title, content, maturationUpdates });
   } catch (error) {
     console.error("POST /api/story-generate error:", error);
     return NextResponse.json(

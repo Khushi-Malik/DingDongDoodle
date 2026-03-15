@@ -24,6 +24,19 @@ interface CharacterData {
   age: number;
   position: { x: number; y: number };
   islandId: number;
+  personality?: PersonalityData | null;
+  memories?: Array<{ id: string; text: string; createdAt: string | Date }>;
+  evolutionMilestones?: Array<{
+    imageUrl: string;
+    createdAt: string | Date;
+    label?: string;
+  }>;
+  versionHistory?: Array<{
+    imageUrl: string;
+    createdAt: string | Date;
+    stage: number;
+    label?: string;
+  }>;
 }
 
 interface IslandData {
@@ -37,8 +50,6 @@ interface IslandData {
   skin?: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const ISLAND_SKINS = [
   { id: "dirt",  imagePath: "/island.png" },
   { id: "sand",  imagePath: "/sand_island.png" },
@@ -50,15 +61,13 @@ const getSkinPath = (skinId?: string) =>
 
 const ISLAND_SIZE         = 620;
 const CHARACTER_FP_PX     = 112;
-const WORLD_SCALE         = 160;   // px per world-coord unit
+const WORLD_SCALE         = 160;
 const MIN_ZOOM            = 0.05;
 const MAX_ZOOM            = 6;
-const ZOOM_STEP           = 0.25;  // for button clicks
+const ZOOM_STEP           = 0.25;
 const ZOOM_SENSITIVITY    = 0.0012;
 const FLY_DURATION_MS     = 500;
 const FLY_TARGET_Y_OFFSET = 0;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function islandWorldPos(island: IslandData) {
   return {
@@ -71,12 +80,9 @@ function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function App() {
   const router = useRouter();
 
-  // ── state ──
   const [characters, setCharacters]         = useState<CharacterData[]>([]);
   const [islands, setIslands]               = useState<IslandData[]>([]);
   const [nextIslandId, setNextIslandId]     = useState(1);
@@ -93,32 +99,39 @@ export default function App() {
     imageFile: File | null; name: string; age: number;
     islandId: number; personality: PersonalityData;
   } | null>(null);
+  const [evolvingCharacter, setEvolvingCharacter] = useState<CharacterData | null>(null);
+  const [rigPreviewUrl, setRigPreviewUrl] = useState<string | null>(null);
+  const [pendingEvolution, setPendingEvolution] = useState<{
+    characterId: string;
+    imageFile: File | null;
+    memoryText: string;
+    personalityDelta: PersonalityData;
+    name: string;
+    age: number;
+    islandId: number;
+  } | null>(null);
 
-  // ── viewport ──
   const [panX, setPanX]     = useState(0);
   const [panY, setPanY]     = useState(0);
   const [zoom, setZoom]     = useState(1);
   const [isPanning, setIsPanning] = useState(false);
 
-  // ── island drag ──
-  const [armedIslandId, setArmedIslandId]         = useState<number | null>(null);
-  const [draggingIslandId, setDraggingIslandId]   = useState<number | null>(null);
+  const [armedIslandId, setArmedIslandId]       = useState<number | null>(null);
+  const [draggingIslandId, setDraggingIslandId] = useState<number | null>(null);
 
-  // ── refs ──
-  const panStartRef     = useRef<{ x: number; y: number } | null>(null);
-  const islandDragRef   = useRef<{
+  const panStartRef   = useRef<{ x: number; y: number } | null>(null);
+  const islandDragRef = useRef<{
     islandId: number; startClientX: number; startClientY: number;
     startX: number; startY: number;
   } | null>(null);
-  const flyRafRef       = useRef<number | null>(null);
-  const panXRef         = useRef(panX);
-  const panYRef         = useRef(panY);
-  const zoomRef         = useRef(zoom);
+  const flyRafRef = useRef<number | null>(null);
+  const panXRef   = useRef(panX);
+  const panYRef   = useRef(panY);
+  const zoomRef   = useRef(zoom);
   panXRef.current = panX;
   panYRef.current = panY;
   zoomRef.current = zoom;
 
-  // ── load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const loadChars = async () => {
       try {
@@ -143,17 +156,15 @@ export default function App() {
     loadIslands();
   }, [router]);
 
-  // ── fly-to ─────────────────────────────────────────────────────────────────
   const flyTo = useCallback((worldX: number, worldY: number, targetZoom?: number) => {
     if (flyRafRef.current) cancelAnimationFrame(flyRafRef.current);
     const startPanX = panXRef.current;
     const startPanY = panYRef.current;
     const startZoom = zoomRef.current;
     const endZoom   = targetZoom ?? startZoom;
-    const endPanX = -worldX * endZoom;
-    const endPanY = FLY_TARGET_Y_OFFSET - worldY * endZoom;
+    const endPanX   = -worldX * endZoom;
+    const endPanY   = FLY_TARGET_Y_OFFSET - worldY * endZoom;
     const startTime = performance.now();
-
     const tick = (now: number) => {
       const t = Math.min((now - startTime) / FLY_DURATION_MS, 1);
       const e = easeInOut(t);
@@ -170,33 +181,28 @@ export default function App() {
     flyTo(x, y, Math.max(0.7, Math.min(1.2, zoomRef.current)));
   }, [flyTo]);
 
-  const resetView = useCallback(() => {
-    flyTo(0, 0, 1);
-  }, [flyTo]);
+  const resetView = useCallback(() => { flyTo(0, 0, 1); }, [flyTo]);
 
-  // ── zoom buttons ──────────────────────────────────────────────────────────
   const zoomBy = useCallback((delta: number) => {
-    const next = Math.min(Math.max(zoomRef.current + delta, MIN_ZOOM), MAX_ZOOM);
+    const next  = Math.min(Math.max(zoomRef.current + delta, MIN_ZOOM), MAX_ZOOM);
     const ratio = next / zoomRef.current;
     setPanX((p) => p * ratio);
     setPanY((p) => p * ratio);
     setZoom(next);
   }, []);
 
-  // ── wheel ─────────────────────────────────────────────────────────────────
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (flyRafRef.current) { cancelAnimationFrame(flyRafRef.current); flyRafRef.current = null; }
-    const next = Math.min(Math.max(zoomRef.current - e.deltaY * ZOOM_SENSITIVITY, MIN_ZOOM), MAX_ZOOM);
+    const next  = Math.min(Math.max(zoomRef.current - e.deltaY * ZOOM_SENSITIVITY, MIN_ZOOM), MAX_ZOOM);
     const ratio = next / zoomRef.current;
-    const mx = e.clientX - window.innerWidth / 2;
-    const my = e.clientY - window.innerHeight / 2;
+    const mx    = e.clientX - window.innerWidth / 2;
+    const my    = e.clientY - window.innerHeight / 2;
     setPanX((p) => mx + (p - mx) * ratio);
     setPanY((p) => my + (p - my) * ratio);
     setZoom(next);
   }, []);
 
-  // ── canvas pan ────────────────────────────────────────────────────────────
   const handleCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (draggingIslandId !== null) return;
     if (["draw","upload","rig"].includes(modalState) || selectedCharacter) return;
@@ -226,14 +232,10 @@ export default function App() {
     setIsPanning(false);
   }, []);
 
-  // ── island drag ───────────────────────────────────────────────────────────
   const handleIslandDblClick = (id: number) =>
     setArmedIslandId((p) => (p === id ? null : id));
 
   const handleIslandPointerDown = (e: React.PointerEvent<HTMLDivElement>, island: IslandData) => {
-    // Support both flows:
-    // 1) double-click-and-hold (e.detail >= 2)
-    // 2) previously armed island drag
     if (armedIslandId !== island.id && e.detail < 2) return;
     e.preventDefault(); e.stopPropagation();
     setArmedIslandId(island.id);
@@ -277,7 +279,6 @@ export default function App() {
     }
   };
 
-  // ── island CRUD ───────────────────────────────────────────────────────────
   const getPackedPos = (index: number) => {
     if (index === 0) return { x: 50, y: 50 };
     const r = (ISLAND_SIZE + 120) * Math.sqrt(index);
@@ -301,7 +302,6 @@ export default function App() {
       setIslands((p) => [...p, saved]);
       setNextIslandId((p) => p + 1);
       setShowNewIslandModal(false);
-      // Fly to the new island
       setTimeout(() => flyToIsland(saved), 100);
       if (tutorialStep === "create-island") { setTutorialStep("draw-maple"); setShowTutorial(true); }
     } catch { alert("Failed to add island."); }
@@ -317,7 +317,6 @@ export default function App() {
     } catch { alert("Failed to delete island."); }
   };
 
-  // ── character placement ───────────────────────────────────────────────────
   const getCharacterPosition = (islandId: number) => {
     const island = islands.find((i) => i.id === islandId);
     if (!island) return { x: 50, y: 50 };
@@ -326,8 +325,8 @@ export default function App() {
     if (existing.length === 0) return { x: 50, y: 50 };
     for (let a = 0; a < 240; a++) {
       const angle = a * 2.399963229728653;
-      const dist = (50 - minDist / 2 - 3) * (0.45 + 0.55 * ((a % 12) / 11));
-      const c = { x: 50 + Math.cos(angle) * dist, y: 50 + Math.sin(angle) * dist };
+      const dist  = (50 - minDist / 2 - 3) * (0.45 + 0.55 * ((a % 12) / 11));
+      const c     = { x: 50 + Math.cos(angle) * dist, y: 50 + Math.sin(angle) * dist };
       if (!existing.some((p) => Math.hypot(p.x - c.x, p.y - c.y) < minDist)) return c;
     }
     return { x: 50, y: 50 };
@@ -336,14 +335,14 @@ export default function App() {
   const getIslandCharLayouts = useCallback((islandId: number) => {
     const island = islands.find((i) => i.id === islandId);
     if (!island) return [] as CharacterData[];
-    const chars = characters.filter((c) => c.islandId === islandId);
+    const chars  = characters.filter((c) => c.islandId === islandId);
     const placed: { x: number; y: number }[] = [];
     const minDist = (CHARACTER_FP_PX / island.size) * 100;
     const gL = 15, gR = 85, gT = 10, gB = 45, gW = 70, gH = 35;
     return chars.map((ch, i) => {
       const cols = Math.ceil(Math.sqrt(chars.length));
-      const x = gL + (gW * (i % cols + 0.5)) / cols;
-      const y = gT + (gH * (Math.floor(i / cols) + 0.5)) / cols;
+      const x    = gL + (gW * (i % cols + 0.5)) / cols;
+      const y    = gT + (gH * (Math.floor(i / cols) + 0.5)) / cols;
       const cand = { x, y };
       if (!placed.some((p) => Math.hypot(p.x - x, p.y - y) < minDist)) {
         placed.push(cand); return { ...ch, position: cand };
@@ -362,34 +361,108 @@ export default function App() {
     return m;
   }, [islands, getIslandCharLayouts]);
 
-  // ── character add ─────────────────────────────────────────────────────────
   const handleAddCharacter = (
     imageFile: File | null, name: string, age: number,
-    islandId: number, personality: PersonalityData,
-  ) => { setPendingCharacter({ imageFile, name, age, islandId, personality }); setModalState("rig"); };
+    islandId: number, personality: PersonalityData, evolveMemoryText?: string,
+  ) => {
+    if (evolvingCharacter) {
+      setPendingEvolution({
+        characterId: evolvingCharacter.id,
+        imageFile,
+        memoryText: evolveMemoryText ?? "",
+        personalityDelta: personality,
+        name: evolvingCharacter.name,
+        age: evolvingCharacter.age,
+        islandId: evolvingCharacter.islandId,
+      });
+      setRigPreviewUrl(imageFile ? URL.createObjectURL(imageFile) : pendingDrawing);
+      setModalState("rig");
+      return;
+    }
+    setPendingCharacter({ imageFile, name, age, islandId, personality });
+    setRigPreviewUrl(imageFile ? URL.createObjectURL(imageFile) : pendingDrawing);
+    setModalState("rig");
+  };
+
+  const handleRigBack = () => {
+    if (pendingEvolution) {
+      setPendingEvolution(null);
+      setRigPreviewUrl(null);
+      setPendingDrawing(null);
+      setModalState("choose");
+      return;
+    }
+    setPendingCharacter(null);
+    setRigPreviewUrl(null);
+    setModalState("upload");
+  };
 
   const handleRigConfirm = async (joints: Record<string, { x: number; y: number }>) => {
-    if (!pendingCharacter) return;
-    const { imageFile, name, age, islandId, personality } = pendingCharacter;
+    if (!pendingCharacter && !pendingEvolution) return;
+    const evolutionPayload = pendingEvolution;
+    const creationPayload  = pendingCharacter;
+    const imageFile  = evolutionPayload?.imageFile ?? creationPayload?.imageFile ?? null;
+    const name       = evolutionPayload?.name ?? creationPayload?.name ?? "";
+    const age        = evolutionPayload?.age  ?? creationPayload?.age  ?? Date.now();
+    const islandId   = evolutionPayload?.islandId ?? creationPayload?.islandId ?? 1;
+    const personality =
+      evolutionPayload?.personalityDelta ??
+      creationPayload?.personality ??
+      { catchphrase: "", traits: [], dailyActivity: "", favoriteThing: "" };
     try {
       let imageUrl = pendingDrawing;
       if (!imageUrl && imageFile) {
         imageUrl = await new Promise<string>((res, rej) => {
           const r = new FileReader();
-          r.onload = () => res(r.result as string);
+          r.onload  = () => res(r.result as string);
           r.onerror = rej;
           r.readAsDataURL(imageFile);
         });
       }
-      const res = await fetch("/api/characters", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, age, imageUrl, position: getCharacterPosition(islandId), islandId, joints, personality }),
-      });
-      if (!res.ok) throw new Error();
-      const newCharacter = await res.json();
-      setCharacters((p) => [...p, newCharacter]);
-      setPendingDrawing(null); setPendingCharacter(null); setModalState("none");
-    } catch { alert("Failed to add character."); }
+      const res = await fetch(
+        "/api/characters",
+        evolutionPayload
+          ? {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "evolve",
+                characterId: evolutionPayload.characterId,
+                imageUrl, joints, personality,
+                memoryText: evolutionPayload.memoryText,
+              }),
+            }
+          : {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name, age, imageUrl,
+                position: getCharacterPosition(islandId),
+                islandId, joints, personality,
+              }),
+            },
+      );
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(errorBody?.error || "Failed to save character");
+      }
+      const resultCharacter = await res.json();
+      if (evolutionPayload) {
+        setCharacters((prev) =>
+          prev.map((c) => (c.id === resultCharacter.id ? resultCharacter : c)),
+        );
+      } else {
+        setCharacters((p) => [...p, resultCharacter]);
+      }
+      setPendingDrawing(null);
+      setPendingCharacter(null);
+      setPendingEvolution(null);
+      setEvolvingCharacter(null);
+      setRigPreviewUrl(null);
+      setModalState("none");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to save character.");
+    }
   };
 
   const handleTutorialDismiss = () => {
@@ -397,16 +470,14 @@ export default function App() {
     else if (tutorialStep === "draw-maple") { setModalState("choose"); setShowTutorial(false); }
   };
 
-  // ── theme colours ─────────────────────────────────────────────────────────
-  const bg       = darkMode ? "#0f2336" : "#e8f9ff";
-  const navBg    = darkMode ? "rgba(15,35,54,0.9)"  : "rgba(255,255,255,0.9)";
-  const navBord  = darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-  const txtMain  = darkMode ? "#f0f6ff" : "#1a1a1a";
-  const txtMuted = darkMode ? "#7ea8c4" : "#888780";
-  const bBg      = darkMode ? "#1e3a52" : "#000";
-  const bHov     = darkMode ? "#2a4d6b" : "#222";
-  const bTxt     = "#fff";
-
+  const bg      = darkMode ? "#0f2336" : "#e8f9ff";
+  const navBg   = darkMode ? "rgba(15,35,54,0.9)"     : "rgba(255,255,255,0.9)";
+  const navBord = darkMode ? "rgba(255,255,255,0.08)"  : "rgba(0,0,0,0.06)";
+  const txtMain = darkMode ? "#f0f6ff" : "#1a1a1a";
+  const txtMuted= darkMode ? "#7ea8c4" : "#888780";
+  const bBg     = darkMode ? "#1e3a52" : "#000";
+  const bHov    = darkMode ? "#2a4d6b" : "#222";
+  const bTxt    = "#fff";
   const zoomPct = `${Math.round(zoom * 100)}%`;
 
   if (loading) {
@@ -429,7 +500,7 @@ export default function App() {
       onPointerCancel={stopPan}
       onWheel={handleWheel}
     >
-      {/* ── Canvas ──────────────────────────────────────────────────────── */}
+      {/* Canvas */}
       <div
         style={{
           transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
@@ -440,8 +511,8 @@ export default function App() {
       >
         {islands.map((planet) => {
           const { x: wx, y: wy } = islandWorldPos(planet);
-          const armed = armedIslandId === planet.id;
-          const dragging = draggingIslandId === planet.id;
+          const armed   = armedIslandId === planet.id;
+          const dragging= draggingIslandId === planet.id;
           return (
             <div
               key={planet.id}
@@ -495,7 +566,7 @@ export default function App() {
         })}
       </div>
 
-      {/* ── Empty state ──────────────────────────────────────────────────── */}
+      {/* Empty state */}
       {islands.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 pointer-events-none text-center px-6">
           <p className="text-5xl">🏝️</p>
@@ -516,20 +587,17 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Top navbar ───────────────────────────────────────────────────── */}
+      {/* Top navbar */}
       <div
         className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-5 py-2.5"
         style={{ background: navBg, borderBottom: `1px solid ${navBord}`, backdropFilter: "blur(14px)" }}
       >
-        {/* Brand */}
         <div className="shrink-0">
           <h1 className="text-sm sm:text-base font-semibold leading-tight" style={{ color: txtMain }}>
             Ding Dong Doodle
           </h1>
           <p className="text-[10px] hidden sm:block" style={{ color: txtMuted }}>Draw · Dream · Discover</p>
         </div>
-
-        {/* Centre actions */}
         <div className="flex items-center gap-1 sm:gap-1.5">
           <NavBtn icon={<Plus className="w-3.5 h-3.5" />} label="Add Drawing" shortLabel="Add"
             onClick={() => setModalState("choose")} bg={bBg} hov={bHov} color={bTxt} />
@@ -542,8 +610,6 @@ export default function App() {
             bg={darkMode ? "#92400e" : "#f59e0b"} hov={darkMode ? "#b45309" : "#d97706"}
             color={darkMode ? "#fff" : "#1c1917"} />
         </div>
-
-        {/* Right */}
         <div className="flex items-center gap-1 shrink-0">
           <IconBtn onClick={() => setDarkMode((p) => !p)} title="Toggle theme" bg={bBg} color={bTxt}>
             {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -555,42 +621,27 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Zoom / nav controls (bottom-left) ────────────────────────────── */}
-      <div
-        className="fixed bottom-5 left-5 z-20 flex flex-col gap-1.5"
-        style={{ pointerEvents: "auto" }}
-        data-no-pan
-      >
-        {/* Zoom in */}
+      {/* Zoom controls */}
+      <div className="fixed bottom-5 left-5 z-20 flex flex-col gap-1.5" style={{ pointerEvents: "auto" }} data-no-pan>
         <CtrlBtn onClick={() => zoomBy(ZOOM_STEP)} title="Zoom in">
           <ZoomIn className="w-4 h-4" />
         </CtrlBtn>
-
-        {/* Zoom level pill */}
         <div
           className="flex items-center justify-center rounded-full text-[11px] font-semibold select-none"
           style={{
             width: 40, height: 28,
             background: darkMode ? "rgba(15,35,54,0.9)" : "rgba(255,255,255,0.9)",
-            border: `1px solid ${navBord}`,
-            color: txtMuted,
-            backdropFilter: "blur(8px)",
+            border: `1px solid ${navBord}`, color: txtMuted, backdropFilter: "blur(8px)",
           }}
         >
           {zoomPct}
         </div>
-
-        {/* Zoom out */}
         <CtrlBtn onClick={() => zoomBy(-ZOOM_STEP)} title="Zoom out">
           <ZoomOut className="w-4 h-4" />
         </CtrlBtn>
-
-        {/* Reset view */}
         <CtrlBtn onClick={resetView} title="Reset view">
           <Maximize2 className="w-4 h-4" />
         </CtrlBtn>
-
-        {/* Jump to first island */}
         {islands.length > 0 && (
           <CtrlBtn onClick={() => flyToIsland(islands[0])} title="Go to home island">
             <Navigation className="w-4 h-4" />
@@ -598,29 +649,58 @@ export default function App() {
         )}
       </div>
 
-      {/* ── Minimap (bottom-right) ────────────────────────────────────────── */}
+      {/* Minimap */}
       {islands.length > 0 && (
         <IslandMinimap
-          islands={islands}
-          characters={characters}
-          panX={panX}
-          panY={panY}
-          zoom={zoom}
-          darkMode={darkMode}
-          onFlyToIsland={flyToIsland}
+          islands={islands} characters={characters}
+          panX={panX} panY={panY} zoom={zoom}
+          darkMode={darkMode} onFlyToIsland={flyToIsland}
         />
       )}
 
-      {/* ── Modals ───────────────────────────────────────────────────────── */}
+      {/* ── Modals ── */}
       <AnimatePresence>
         {selectedCharacter && (
-          <CharacterDetail {...selectedCharacter} onClose={() => setSelectedCharacter(null)} />
+          <CharacterDetail
+            {...selectedCharacter}
+            onClose={() => setSelectedCharacter(null)}
+            onEvolved={(updated) => {
+              setCharacters((prev) =>
+                prev.map((c) =>
+                  c.id === updated.id
+                    ? {
+                        ...c,
+                        imageUrl:       updated.imageUrl,
+                        versionHistory: updated.versionHistory,
+                        memories:       updated.memories,
+                        personality:    updated.personality,
+                      }
+                    : c
+                )
+              );
+              setSelectedCharacter((prev) =>
+                prev?.id === updated.id
+                  ? {
+                      ...prev,
+                      imageUrl:       updated.imageUrl,
+                      versionHistory: updated.versionHistory,
+                      memories:       updated.memories,
+                      personality:    updated.personality,
+                    }
+                  : prev
+              );
+            }}
+          />
         )}
         {modalState === "choose" && (
           <ChooseInputModal
             onChooseDraw={() => setModalState("draw")}
             onChooseUpload={() => setModalState("upload")}
-            onClose={() => { setModalState("none"); setPendingDrawing(null); }}
+            onClose={() => {
+              setModalState("none");
+              setPendingDrawing(null);
+              setEvolvingCharacter(null);
+            }}
           />
         )}
         {modalState === "draw" && (
@@ -639,9 +719,12 @@ export default function App() {
             onSubmit={handleAddCharacter}
             previewImageUrl={pendingDrawing ?? undefined}
             islands={islands}
+            isEvolution={!!evolvingCharacter}
+            evolutionName={evolvingCharacter?.name}
+            evolutionIslandId={evolvingCharacter?.islandId}
           />
         )}
-        {modalState === "rig" && pendingCharacter && (
+        {modalState === "rig" && (pendingCharacter || pendingEvolution) && (
           <motion.div key="rig" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden">
@@ -649,17 +732,21 @@ export default function App() {
                 <div>
                   <h2 className="text-base font-medium text-gray-800">Place joints</h2>
                   <p className="text-sm text-gray-400 mt-0.5">
-                    Click to place each joint on <span className="font-medium text-gray-600">{pendingCharacter.name}</span>
+                    Click to place each joint on{" "}
+                    <span className="font-medium text-gray-600">
+                      {pendingCharacter?.name ?? evolvingCharacter?.name ?? "your character"}
+                    </span>
                   </p>
                 </div>
-                <button onClick={() => { setPendingCharacter(null); setModalState("upload"); }}
-                  className="text-sm text-gray-400 hover:text-gray-600">← Back</button>
+                <button onClick={handleRigBack} className="text-sm text-gray-400 hover:text-gray-600">
+                  ← Back
+                </button>
               </div>
               <div className="p-4">
                 <JointEditor
-                  imageUrl={pendingDrawing ?? ""}
+                  imageUrl={rigPreviewUrl ?? pendingDrawing ?? ""}
                   onConfirm={handleRigConfirm}
-                  onBack={() => { setPendingCharacter(null); setModalState("upload"); }}
+                  onBack={handleRigBack}
                 />
               </div>
             </div>
@@ -715,7 +802,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
     y: ((wy - minY) / wH) * MH,
   });
 
-  // viewport box in minimap
   const vpW  = (window.innerWidth / zoom / wW) * MW;
   const vpH  = (window.innerHeight / zoom / wH) * MH;
   const vpCx = toMini(-panX / zoom, -panY / zoom);
@@ -738,7 +824,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
 
   return (
     <>
-      {/* ── Collapsed minimap ── */}
       {!expanded && (
         <div
           className="fixed bottom-5 right-5 z-20 shadow-lg"
@@ -748,7 +833,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="relative overflow-hidden rounded" style={{ width: MW, height: MH, background: darkMode ? "#0d1f2f" : "#f0f9ff" }}>
-            {/* Islands */}
             {islands.map((isl, idx) => {
               const mp = toMini(worldPositions[idx].x, worldPositions[idx].y);
               const dw = Math.max(22, (isl.size / wW) * MW * 0.75);
@@ -756,33 +840,29 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
               return (
                 <div key={isl.id} style={{ pointerEvents: "none" }}>
                   <div className="absolute" style={{
-                    left: mp.x - dw / 2, top: mp.y - dh / 2,
-                    width: dw, height: dh,
+                    left: mp.x - dw / 2, top: mp.y - dh / 2, width: dw, height: dh,
                     backgroundImage: `url('${getSkinPath(isl.skin)}')`,
                     backgroundSize: "cover", backgroundPosition: "center top", opacity: 0.85,
                   }} />
                   <span className="absolute text-center truncate" style={{
-                    left: mp.x - dw / 2, top: mp.y + dh / 2 + 1,
-                    width: dw, fontSize: 8,
+                    left: mp.x - dw / 2, top: mp.y + dh / 2 + 1, width: dw, fontSize: 8,
                     color: darkMode ? "#9bb8cc" : "#666",
                   }}>{isl.label}</span>
                 </div>
               );
             })}
-            {/* Characters */}
             {characters.map((ch) => {
               const isl = islands.find((i) => i.id === ch.islandId);
               if (!isl) return null;
               const idx = islands.indexOf(isl);
-              const cx = worldPositions[idx].x + ((ch.position.x - 50) / 100) * isl.size;
-              const cy = worldPositions[idx].y + ((ch.position.y - 50) / 100) * (isl.size * 0.4);
-              const mp = toMini(cx, cy);
+              const cx  = worldPositions[idx].x + ((ch.position.x - 50) / 100) * isl.size;
+              const cy  = worldPositions[idx].y + ((ch.position.y - 50) / 100) * (isl.size * 0.4);
+              const mp  = toMini(cx, cy);
               return <div key={ch.id} className="absolute rounded-full" style={{
                 left: mp.x - 2.5, top: mp.y - 2.5, width: 5, height: 5,
                 background: "#7F77DD", border: "1px solid #6366f1", pointerEvents: "none",
               }} />;
             })}
-            {/* Viewport box */}
             <div className="absolute" style={{
               left: vpX, top: vpY, width: Math.max(12, vpW), height: Math.max(12, vpH),
               border: "1.5px solid rgba(59,130,246,0.7)",
@@ -796,7 +876,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
         </div>
       )}
 
-      {/* ── Expanded map ── */}
       {expanded && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setExpanded(false)}
@@ -807,7 +886,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-2.5 z-10"
               style={{ borderBottom: `1px solid ${darkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}` }}>
               <p className="text-xs font-semibold" style={{ color: darkMode ? "#9bb8cc" : "#555" }}>
@@ -817,8 +895,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
                 className="text-lg leading-none opacity-50 hover:opacity-100 transition-opacity"
                 style={{ color: darkMode ? "#fff" : "#000" }}>×</button>
             </div>
-
-            {/* Drag surface */}
             <div
               className="absolute inset-0 cursor-grab active:cursor-grabbing overflow-hidden"
               style={{ top: 40 }}
@@ -833,20 +909,16 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
               }}
               onPointerUp={(e) => {
                 dragRef.current = null;
-                if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+                if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId))
                   (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-                }
               }}
               onPointerCancel={(e) => {
                 dragRef.current = null;
-                if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+                if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId))
                   (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-                }
               }}
             >
-              {/* Ocean BG */}
               <div className="absolute inset-0" style={{ background: darkMode ? "#0d1f2f" : "#dff3fb" }} />
-
               {islands.map((isl, idx) => {
                 const ep = toExp(worldPositions[idx].x, worldPositions[idx].y);
                 const dw = Math.max(46, isl.size * expScale * 0.58);
@@ -863,16 +935,12 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
                       backgroundImage: `url('${getSkinPath(isl.skin)}')`,
                       backgroundSize: "cover", backgroundPosition: "center top",
                       borderRadius: 4, overflow: "hidden",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                      transition: "transform 0.15s",
-                    }}
-                    className="group-hover:scale-105"
-                    />
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)", transition: "transform 0.15s",
+                    }} className="group-hover:scale-105" />
                     <p className="text-center mt-1 text-xs font-medium truncate"
                       style={{ color: darkMode ? "#9bb8cc" : "#444", width: dw }}>
                       {isl.label}
                     </p>
-                    {/* character dots */}
                     {characters.filter((c) => c.islandId === isl.id).map((ch) => {
                       const cx = ((ch.position.x - 15) / 70) * dw;
                       const cy = ((ch.position.y - 10) / 35) * dh;
@@ -885,7 +953,6 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
                 );
               })}
             </div>
-
             <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] pointer-events-none"
               style={{ color: darkMode ? "#4a6880" : "#bbb" }}>
               Drag to pan · click an island to fly there
@@ -897,7 +964,7 @@ function IslandMinimap({ islands, characters, panX, panY, zoom, darkMode, onFlyT
   );
 }
 
-// ─── Small atoms ─────────────────────────────────────────────────────────────
+// ─── Atoms ────────────────────────────────────────────────────────────────────
 
 function NavBtn({ icon, label, shortLabel, onClick, bg, hov, color }: {
   icon: React.ReactNode; label: string; shortLabel: string;

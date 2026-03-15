@@ -7,29 +7,42 @@ import { cookies } from "next/headers";
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 const memorySchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  text: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
+  id:        { type: String, required: true },
+  text:      { type: String, required: true },
+  createdAt: { type: Date,   default: Date.now },
+});
+
+const evolutionMilestoneSchema = new mongoose.Schema({
+  imageUrl:  { type: String, required: true },
+  createdAt: { type: Date,   default: Date.now },
+  label:     { type: String, default: "" },
+});
+
+const versionHistorySchema = new mongoose.Schema({
+  imageUrl:  { type: String, required: true },
+  createdAt: { type: Date,   default: Date.now },
+  stage:     { type: Number, required: true },
+  label:     { type: String, default: "" },
 });
 
 const characterSchema = new mongoose.Schema({
-  userId: String,
-  name: String,
-  age: Number,
-  imageUrl: String,
-  position: { x: Number, y: Number },
-  islandId: Number,
-  joints: { type: mongoose.Schema.Types.Mixed, default: null }, // ← add
-  riggedAt: { type: Date, default: null }, // ← add
+  userId:      String,
+  name:        String,
+  age:         Number,
+  imageUrl:    String,
+  position:    { x: Number, y: Number },
+  islandId:    Number,
+  joints:      { type: mongoose.Schema.Types.Mixed, default: null },
+  riggedAt:    { type: Date, default: null },
   personality: { type: mongoose.Schema.Types.Mixed, default: null },
-  memories: { type: [memorySchema], default: [] },
-  createdAt: { type: Date, default: Date.now },
+  memories:              { type: [memorySchema],             default: [] },
+  evolutionMilestones:   { type: [evolutionMilestoneSchema], default: [] },
+  versionHistory:        { type: [versionHistorySchema],     default: [] },
+  createdAt:   { type: Date, default: Date.now },
 });
 
 const Character =
   mongoose.models.Character || mongoose.model("Character", characterSchema);
-// delete (mongoose.models as any).Character;
-// const Character = mongoose.model("Character", characterSchema);
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -49,36 +62,47 @@ async function getUserId(): Promise<string | null> {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Serialise ────────────────────────────────────────────────────────────────
 
 function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
   const c = char as unknown as {
-    _id: { toString(): string };
+    _id:      { toString(): string };
     imageUrl: string;
-    name: string;
-    age: number;
+    name:     string;
+    age:      number;
     position: { x: number; y: number };
     islandId: number;
-    joints: unknown;
-    memories: Array<{ id: string; text: string; createdAt: Date }>;
+    joints:   unknown;
+    personality: unknown;
+    memories:            Array<{ id: string; text: string; createdAt: Date }>;
+    evolutionMilestones: Array<{ imageUrl: string; createdAt: Date; label?: string }>;
+    versionHistory:      Array<{ imageUrl: string; createdAt: Date; stage: number; label?: string }>;
   };
   return {
-    id: c._id.toString(),
+    id:       c._id.toString(),
     imageUrl: c.imageUrl,
-    name: c.name,
-    age: c.age,
+    name:     c.name,
+    age:      c.age,
     position: c.position,
     islandId: c.islandId,
-    joints: c.joints ?? null,
+    joints:   c.joints ?? null,
+    personality: c.personality ?? null,
     memories: (c.memories ?? []).map((m) => ({
-      id: m.id,
-      text: m.text,
-      createdAt: m.createdAt,
+      id: m.id, text: m.text, createdAt: m.createdAt,
+    })),
+    evolutionMilestones: (c.evolutionMilestones ?? []).map((m) => ({
+      imageUrl: m.imageUrl, createdAt: m.createdAt, label: m.label ?? "",
+    })),
+    versionHistory: (c.versionHistory ?? []).map((v) => ({
+      imageUrl:  v.imageUrl,
+      createdAt: v.createdAt,
+      stage:     v.stage,
+      label:     v.label ?? `Stage ${v.stage}`,
     })),
   };
 }
 
-// ─── GET — list all characters for user ───────────────────────────────────────
+// ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET() {
   try {
@@ -88,18 +112,14 @@ export async function GET() {
 
     await connectDB();
     const characters = await Character.find({ userId }).sort({ createdAt: 1 });
-
     return NextResponse.json(characters.map(serializeCharacter));
   } catch (error) {
     console.error("GET /api/characters error:", error);
-    return NextResponse.json(
-      { error: "Failed to load characters" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to load characters" }, { status: 500 });
   }
 }
 
-// ─── POST — create a new character ────────────────────────────────────────────
+// ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
   try {
@@ -110,44 +130,34 @@ export async function POST(request: Request) {
     await connectDB();
     const body = await request.json();
 
-    console.log(body);
-
     const character = await Character.create({
       userId,
-      name: body.name,
-      age: body.age,
-      imageUrl: body.imageUrl,
-      position: body.position,
-      islandId: body.islandId,
-      joints: body.joints ?? null,
-       personality: body.personality,
-       memories: [],
+      name:        body.name,
+      age:         body.age,
+      imageUrl:    body.imageUrl,
+      position:    body.position,
+      islandId:    body.islandId,
+      joints:      body.joints ?? null,
+      personality: body.personality ?? null,
+      memories:    [],
+      // Seed Stage 1 immediately so versionHistory is never empty
+      versionHistory: body.imageUrl
+        ? [{ imageUrl: body.imageUrl, createdAt: new Date(), stage: 1, label: "Stage 1" }]
+        : [],
     });
 
-    // return NextResponse.json({
-    //   id: character._id.toString(),
-    //   name: character.name,
-    //   age: character.age,
-    //   imageUrl: character.imageUrl,
-    //   position: character.position,
-    //   joints: body.joints ?? null,
-    //   islandId: character.islandId,
-    // });
     return NextResponse.json(serializeCharacter(character));
   } catch (error) {
     console.error("POST /api/characters error:", error);
-    return NextResponse.json(
-      { error: "Failed to save character" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to save character" }, { status: 500 });
   }
 }
 
-// ─── PATCH — add or remove a memory on a specific character ──────────────────
+// ─── PATCH ────────────────────────────────────────────────────────────────────
 //
-//  Body shapes:
-//    { action: "add",    characterId: string, memory: { id, text } }
-//    { action: "remove", characterId: string, memoryId: string }
+//  { action: "add",    characterId, memory: { id, text } }
+//  { action: "remove", characterId, memoryId }
+//  { action: "evolve", characterId, imageUrl, joints, personality?, memoryText? }
 
 export async function PATCH(request: Request) {
   try {
@@ -159,39 +169,125 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { action, characterId, memory, memoryId } = body;
 
-    if (!characterId || !action) {
+    if (!characterId || !action)
       return NextResponse.json(
-        { error: "characterId and action are required" },
-        { status: 400 }
+        { error: "characterId and action are required" }, { status: 400 }
       );
-    }
 
     const char = await Character.findOne({ _id: characterId, userId });
-    if (!char) {
-      return NextResponse.json(
-        { error: "Character not found" },
-        { status: 404 }
-      );
-    }
+    if (!char)
+      return NextResponse.json({ error: "Character not found" }, { status: 404 });
 
+    // ── add memory ───────────────────────────────────────────────────────────
     if (action === "add") {
-      if (!memory?.id || !memory?.text) {
+      if (!memory?.id || !memory?.text)
         return NextResponse.json(
-          { error: "memory.id and memory.text are required for add" },
-          { status: 400 }
+          { error: "memory.id and memory.text are required" }, { status: 400 }
         );
-      }
       char.memories.push({ id: memory.id, text: memory.text, createdAt: new Date() });
+
+    // ── remove memory ────────────────────────────────────────────────────────
     } else if (action === "remove") {
-      if (!memoryId) {
+      if (!memoryId)
+        return NextResponse.json({ error: "memoryId is required" }, { status: 400 });
+      char.memories = char.memories.filter((m: { id: string }) => m.id !== memoryId);
+
+    // ── evolve ───────────────────────────────────────────────────────────────
+    } else if (action === "evolve") {
+      const { imageUrl, joints, personality, memoryText } = body;
+      if (!imageUrl || !joints)
         return NextResponse.json(
-          { error: "memoryId is required for remove" },
-          { status: 400 }
+          { error: "imageUrl and joints are required for evolve" }, { status: 400 }
         );
+
+      // ── Build version history as PLAIN objects ──────────────────────────
+      //
+      //    Mongoose subdocuments can't be reliably spread and re-assigned.
+      //    Convert everything to plain JS first, then reassign the whole array.
+
+      const existingHistory: Array<{
+        imageUrl: string; createdAt: Date; stage: number; label: string;
+      }> = (char.versionHistory ?? []).map((v: {
+        imageUrl: string; createdAt: Date; stage: number; label?: string;
+      }) => ({
+        imageUrl:  v.imageUrl,
+        createdAt: v.createdAt ?? new Date(),
+        stage:     v.stage,
+        label:     v.label ?? `Stage ${v.stage}`,
+      }));
+
+      // If the character predates versionHistory tracking, seed Stage 1 now
+      if (existingHistory.length === 0 && char.imageUrl) {
+        existingHistory.push({
+          imageUrl:  char.imageUrl,
+          createdAt: char.createdAt ?? new Date(),
+          stage:     1,
+          label:     "Stage 1",
+        });
       }
-      char.memories = char.memories.filter(
-        (m: { id: string }) => m.id !== memoryId
-      );
+
+      // Append the new stage
+      const nextStage = existingHistory.length + 1;
+      existingHistory.push({
+        imageUrl,
+        createdAt: new Date(),
+        stage:     nextStage,
+        label:     `Stage ${nextStage}`,
+      });
+
+      // Directly replace the array (plain objects, no Mongoose subdoc issues)
+      char.versionHistory = existingHistory;
+      char.markModified("versionHistory");
+
+      // Also keep evolutionMilestones in sync (legacy / backwards-compat)
+      const milestones = (char.evolutionMilestones ?? []).map((m: {
+        imageUrl: string; createdAt: Date; label?: string;
+      }) => ({
+        imageUrl: m.imageUrl, createdAt: m.createdAt ?? new Date(), label: m.label ?? "",
+      }));
+      if (char.imageUrl) {
+        milestones.push({
+          imageUrl: char.imageUrl, createdAt: new Date(), label: `Stage ${milestones.length + 1}`,
+        });
+      }
+      char.evolutionMilestones = milestones;
+      char.markModified("evolutionMilestones");
+
+      // Swap the active image + joints
+      char.imageUrl = imageUrl;
+      char.joints   = joints;
+      char.riggedAt = new Date();
+
+      // Merge personality (additive — never replaces previous traits)
+      if (personality) {
+        const current = (char.personality as {
+          catchphrase?: string; traits?: string[];
+          dailyActivity?: string; favoriteThing?: string;
+        } | null) ?? { catchphrase: "", traits: [], dailyActivity: "", favoriteThing: "" };
+
+        char.personality = {
+          catchphrase:
+            personality.catchphrase?.trim() || current.catchphrase || "",
+          traits: Array.from(new Set([
+            ...(current.traits ?? []),
+            ...((personality.traits as string[] | undefined) ?? []),
+          ])),
+          dailyActivity: [current.dailyActivity, personality.dailyActivity]
+            .filter((v) => typeof v === "string" && v.trim()).join(" | "),
+          favoriteThing: [current.favoriteThing, personality.favoriteThing]
+            .filter((v) => typeof v === "string" && v.trim()).join(" | "),
+        };
+      }
+
+      // Attach optional memory note
+      if (typeof memoryText === "string" && memoryText.trim()) {
+        char.memories.push({
+          id:        crypto.randomUUID(),
+          text:      memoryText.trim(),
+          createdAt: new Date(),
+        });
+      }
+
     } else {
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
@@ -200,9 +296,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json(serializeCharacter(char));
   } catch (error) {
     console.error("PATCH /api/characters error:", error);
-    return NextResponse.json(
-      { error: "Failed to update character" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update character" }, { status: 500 });
   }
 }

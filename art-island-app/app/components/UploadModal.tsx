@@ -19,9 +19,13 @@ interface UploadModalProps {
     age: number,
     islandId: number,
     personality: PersonalityData,
+    evolveMemoryText?: string,
   ) => void;
   previewImageUrl?: string;
   islands: IslandData[];
+  isEvolution?: boolean;
+  evolutionName?: string;
+  evolutionIslandId?: number;
 }
 
 const TRAITS = [
@@ -40,6 +44,9 @@ export function UploadModal({
   onSubmit,
   previewImageUrl,
   islands,
+  isEvolution = false,
+  evolutionName,
+  evolutionIslandId,
 }: UploadModalProps) {
   const [imageUrl, setImageUrl] = useState<string>(previewImageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -49,6 +56,7 @@ export function UploadModal({
   );
   const [selectedIslandId, setSelectedIslandId] = useState(islands[0]?.id || 1);
   const [showPersonality, setShowPersonality] = useState(false);
+  const [evolveMemoryText, setEvolveMemoryText] = useState("");
   const [personality, setPersonality] = useState<PersonalityData>({
     catchphrase: "",
     traits: [],
@@ -67,6 +75,17 @@ export function UploadModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEvolution && (imageFile || previewImageUrl)) {
+      onSubmit(
+        imageFile,
+        evolutionName || name || "Evolved",
+        Date.now(),
+        evolutionIslandId ?? selectedIslandId,
+        personality,
+        evolveMemoryText,
+      );
+      return;
+    }
     if ((imageFile || previewImageUrl) && name && creationDate) {
       const creationTimestamp = new Date(creationDate).getTime();
       onSubmit(
@@ -113,7 +132,11 @@ export function UploadModal({
         </button>
 
         <h2 className="text-3xl font-bold text-gray-800 mb-6">
-          {previewImageUrl ? "Name Your Character" : "Add Your Drawing!"}
+          {isEvolution
+            ? "Evolve Character"
+            : previewImageUrl
+              ? "Name Your Character"
+              : "Add Your Drawing!"}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -162,7 +185,8 @@ export function UploadModal({
             )}
           </div>
 
-          <div>
+          {!isEvolution && (
+            <div>
             <label
               htmlFor="name"
               className="block text-sm font-medium text-gray-700 mb-2"
@@ -178,9 +202,11 @@ export function UploadModal({
               placeholder="Enter name..."
               required
             />
-          </div>
+            </div>
+          )}
 
-          <div>
+          {!isEvolution && (
+            <div>
             <label
               htmlFor="creationDate"
               className="block text-sm font-medium text-gray-700 mb-2"
@@ -196,9 +222,11 @@ export function UploadModal({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none"
               required
             />
-          </div>
+            </div>
+          )}
 
-          <div>
+          {!isEvolution && (
+            <div>
             <label
               htmlFor="island"
               className="block text-sm font-medium text-gray-700 mb-2"
@@ -217,7 +245,27 @@ export function UploadModal({
                 </option>
               ))}
             </select>
-          </div>
+            </div>
+          )}
+
+          {isEvolution && (
+            <div>
+              <label
+                htmlFor="evolveMemory"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Add memory from this stage (optional)
+              </label>
+              <textarea
+                id="evolveMemory"
+                value={evolveMemoryText}
+                onChange={(e) => setEvolveMemoryText(e.target.value)}
+                rows={2}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none"
+                placeholder="What changed as they evolved?"
+              />
+            </div>
+          )}
 
           {/* Personality Section */}
           <div>
@@ -300,10 +348,10 @@ export function UploadModal({
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              disabled={!(imageFile || previewImageUrl) || !name}
+              disabled={!(imageFile || previewImageUrl) || (!isEvolution && !name)}
               className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors"
             >
-              Add to Island!
+              {isEvolution ? "Continue to Rig" : "Add to Island!"}
             </button>
             <button
               type="button"

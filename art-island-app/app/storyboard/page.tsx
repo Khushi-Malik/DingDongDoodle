@@ -21,6 +21,12 @@ export interface CharacterData {
   position?: { x: number; y: number };
   islandId?: number;
   memories: CharacterMemory[];
+  personality?: {
+    catchphrase?: string;
+    traits?: string[];
+    dailyActivity?: string;
+    favoriteThing?: string;
+  } | null;
 }
 
 interface ThemeData {
@@ -719,6 +725,51 @@ export default function StoryboardPage() {
 
       if (!title || !content) {
         throw new Error("Story service returned an empty response");
+      }
+
+      const maturationUpdates = Array.isArray(data?.maturationUpdates)
+        ? data.maturationUpdates
+        : [];
+
+      if (maturationUpdates.length > 0) {
+        const settled = await Promise.allSettled(
+          maturationUpdates.map((update: unknown) => {
+            if (!update || typeof update !== "object") {
+              return Promise.resolve(null);
+            }
+            const record = update as Record<string, unknown>;
+            const characterId = String(record.characterId || "").trim();
+            if (!characterId) return Promise.resolve(null);
+
+            return fetch("/api/characters", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "mature-story",
+                characterId,
+                memoryText: String(record.newMemory || "").trim(),
+                personalityDelta:
+                  record.personalityDelta &&
+                  typeof record.personalityDelta === "object"
+                    ? record.personalityDelta
+                    : {},
+              }),
+            }).then(async (r) => (r.ok ? r.json() : null));
+          })
+        );
+
+        const updatedById = new Map<string, CharacterData>();
+        for (const item of settled) {
+          if (item.status === "fulfilled" && item.value?.id) {
+            updatedById.set(item.value.id, item.value as CharacterData);
+          }
+        }
+
+        if (updatedById.size > 0) {
+          setCharacters((prev) =>
+            prev.map((c) => updatedById.get(c.id) ?? c)
+          );
+        }
       }
 
       setGeneratedStory({ title, content });
