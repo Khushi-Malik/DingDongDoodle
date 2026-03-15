@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { EvolutionTimeline, VersionStage } from "./EvolutionTimeline";
 import JointEditor from "@/app/components/JointEditor";
 import { DrawingCanvas } from "./DrawingCanvas";
+import { AnimatedRigSprite, RigAnimMode } from "./AnimatedRigSprite";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,11 +28,17 @@ export interface CharacterDetailProps {
   name: string;
   age: number;
   imageUrl: string;
+  rigPath?: string | null;
+  joints?: Partial<Record<"head_top" | "neck" | "shl" | "shr" | "hipl" | "hipr" | "footl" | "footr", { x: number; y: number }>> | null;
+  riggedAt?: string | Date | null;
+  animationPreference?: "auto" | RigAnimMode;
   islandId: number;
   memories?: Memory[];
   personality?: Personality | null;
   versionHistory?: VersionStage[];
   onClose: () => void;
+  onRigGenerated?: (updated: { id: string; rigPath: string; riggedAt: string }) => void;
+  onAnimationUpdated?: (updated: { id: string; animationPreference: "auto" | RigAnimMode }) => void;
   /** Fired after successful evolve so the island can update the sprite */
   onEvolved?: (updated: {
     id: string;
@@ -51,6 +58,17 @@ type ChatMessage = {
   text: string;
 };
 
+const ANIMATION_OPTIONS: Array<{ key: "auto" | RigAnimMode; label: string }> = [
+  { key: "auto", label: "Auto roam" },
+  { key: "idle", label: "Idle" },
+  { key: "walk", label: "Walk" },
+  { key: "hop", label: "Hop" },
+  { key: "wave", label: "Wave" },
+  { key: "run", label: "Run" },
+  { key: "dance", label: "Dance" },
+  { key: "sleep", label: "Sleep" },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CharacterDetail({
@@ -58,10 +76,16 @@ export function CharacterDetail({
   name,
   age,
   imageUrl:        initialImageUrl,
+  rigPath,
+  joints,
+  riggedAt,
+  animationPreference = "auto",
   memories:        initialMemories    = [],
   personality:     initialPersonality,
   versionHistory:  initialHistory     = [],
   onClose,
+  onRigGenerated,
+  onAnimationUpdated,
   onEvolved,
 }: CharacterDetailProps) {
   const [tab, setTab]                 = useState<Tab>("info");
@@ -78,6 +102,11 @@ export function CharacterDetail({
   const [livePersonality,   setLivePersonality]   = useState<Personality | null>(initialPersonality ?? null);
   const [chatInput, setChatInput]                 = useState("");
   const [chatBusy, setChatBusy]                   = useState(false);
+  const [liveRigPath, setLiveRigPath]             = useState<string | null>(rigPath ?? null);
+  const [liveAnimationPreference, setLiveAnimationPreference] = useState<"auto" | RigAnimMode>(animationPreference);
+  const [animationBusy, setAnimationBusy] = useState(false);
+  const [rigBusy, setRigBusy]                     = useState(false);
+  const [rigMessage, setRigMessage]               = useState<string | null>(null);
 
   const favoriteForQuote = useMemo(() => {
     if (livePersonality?.favoriteThing?.trim()) return livePersonality.favoriteThing.trim();
@@ -95,6 +124,7 @@ export function CharacterDetail({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageCount   = liveHistory.length;
+  const previewMode: RigAnimMode = liveAnimationPreference === "auto" ? "wave" : liveAnimationPreference;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -157,6 +187,67 @@ export function CharacterDetail({
       ]);
     } finally {
       setChatBusy(false);
+    }
+  };
+
+  const generateRig = async () => {
+    if (rigBusy) return;
+    setRigBusy(true);
+    setRigMessage(null);
+    try {
+      const res = await fetch("/api/rig/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characterId: id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Rig generation failed");
+      }
+
+      const generatedPath = String(payload?.rigPath || "").trim();
+      const riggedAtValue = String(payload?.riggedAt || new Date().toISOString());
+      if (!generatedPath) throw new Error("Rig generated but no rigPath returned");
+
+      const refreshedPath = `${generatedPath}?v=${Date.now()}`;
+      setLiveRigPath(refreshedPath);
+      setRigMessage("Rig generated successfully. Animation updated.");
+      onRigGenerated?.({ id, rigPath: refreshedPath, riggedAt: riggedAtValue });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Rig generation failed.";
+      setRigMessage(message);
+    } finally {
+      setRigBusy(false);
+    }
+  };
+
+  const updateAnimationPreference = async (next: "auto" | RigAnimMode) => {
+    if (animationBusy || next === liveAnimationPreference) return;
+    setAnimationBusy(true);
+    setRigMessage(null);
+    try {
+      const res = await fetch("/api/characters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set-animation",
+          characterId: id,
+          animationPreference: next,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Could not update animation");
+      }
+      const confirmed = (String(payload?.animationPreference || next) as "auto" | RigAnimMode);
+      setLiveAnimationPreference(confirmed);
+      setRigMessage("Animation preference updated.");
+      onAnimationUpdated?.({ id, animationPreference: confirmed });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update animation.";
+      setRigMessage(message);
+    } finally {
+      setAnimationBusy(false);
     }
   };
 
@@ -400,7 +491,16 @@ export function CharacterDetail({
                     <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-5 space-y-5">
                       <div className="flex gap-5">
                         <div className="relative w-28 h-28 shrink-0 rounded-2xl overflow-hidden border border-stone-200 bg-stone-50">
-                          <Image src={liveImageUrl} alt={name} fill className="object-contain p-2" />
+                          <AnimatedRigSprite
+                            imageUrl={liveImageUrl}
+                            rigPath={liveRigPath}
+                            joints={joints}
+                            riggedAt={riggedAt}
+                            name={name}
+                            mode={previewMode}
+                            direction={1}
+                            frameSizePx={104}
+                          />
                           {stageCount > 0 && (
                             <span className="absolute bottom-1.5 right-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-stone-900">
                               Lv {stageCount}
@@ -415,6 +515,14 @@ export function CharacterDetail({
                               className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors">
                               ✨ Evolve character
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => void generateRig()}
+                              disabled={rigBusy}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white hover:bg-stone-50 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors"
+                            >
+                              {rigBusy ? "Generating..." : "Generate mesh rig"}
+                            </button>
                             {stageCount > 1 && (
                               <button type="button" onClick={() => setTab("evolution")}
                                 className="text-xs text-amber-600 hover:text-amber-800 font-medium transition self-center">
@@ -422,6 +530,34 @@ export function CharacterDetail({
                               </button>
                             )}
                           </div>
+                          <div>
+                            <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mb-1.5">
+                              Animation
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ANIMATION_OPTIONS.map((opt) => {
+                                const active = liveAnimationPreference === opt.key;
+                                return (
+                                  <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={() => void updateAnimationPreference(opt.key)}
+                                    disabled={animationBusy}
+                                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
+                                      active
+                                        ? "border-amber-400 bg-amber-50 text-amber-800"
+                                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {rigMessage && (
+                            <p className="text-xs text-stone-500">{rigMessage}</p>
+                          )}
                         </div>
                       </div>
 

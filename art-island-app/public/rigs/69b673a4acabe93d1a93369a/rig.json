@@ -1,0 +1,68 @@
+{
+  "character": {
+    "width": 680,
+    "height": 407
+  },
+  "parts": {
+    "head": {
+      "file": "parts/head.png",
+      "x": 0,
+      "y": 0,
+      "width": 680,
+      "height": 125,
+      "pivot_x": 340,
+      "pivot_y": 125,
+      "z": 6
+    },
+    "torso": {
+      "file": "parts/torso.png",
+      "x": 230,
+      "y": 119,
+      "width": 176,
+      "height": 128,
+      "pivot_x": 88,
+      "pivot_y": 0,
+      "z": 4
+    },
+    "arm_left": {
+      "file": "parts/arm_left.png",
+      "x": 0,
+      "y": 138,
+      "width": 248,
+      "height": 103,
+      "pivot_x": 248,
+      "pivot_y": 0,
+      "z": 2
+    },
+    "arm_right": {
+      "file": "parts/arm_right.png",
+      "x": 388,
+      "y": 138,
+      "width": 292,
+      "height": 103,
+      "pivot_x": 0,
+      "pivot_y": 0,
+      "z": 2
+    },
+    "leg_left": {
+      "file": "parts/leg_left.png",
+      "x": 0,
+      "y": 241,
+      "width": 346,
+      "height": 166,
+      "pivot_x": 276,
+      "pivot_y": 0,
+      "z": 1
+    },
+    "leg_right": {
+      "file": "parts/leg_right.png",
+      "x": 334,
+      "y": 241,
+      "width": 346,
+      "height": 166,
+      "pivot_x": 69,
+      "pivot_y": 0,
+      "z": 1
+    }
+  }
+}

@@ -13,6 +13,7 @@ import { ChooseInputModal } from "../components/ChooseInputModal";
 import { DrawingCanvas } from "../components/DrawingCanvas";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import JointEditor from "@/app/components/JointEditor";
+import type { RigAnimMode } from "../components/AnimatedRigSprite";
 
 type ModalState = "none" | "choose" | "draw" | "upload" | "rig";
 type TutorialStep = "create-island" | "draw-maple" | "none";
@@ -21,6 +22,9 @@ interface CharacterData {
   id: string;
   imageUrl: string;
   rigPath?: string | null;
+  joints?: Partial<Record<"head_top" | "neck" | "shl" | "shr" | "hipl" | "hipr" | "footl" | "footr", { x: number; y: number }>> | null;
+  riggedAt?: string | Date | null;
+  animationPreference?: "auto" | RigAnimMode;
   name: string;
   age: number;
   position: { x: number; y: number };
@@ -66,7 +70,7 @@ const getSkinPath = (skinId?: string) =>
   ISLAND_SKINS.find((s) => s.id === skinId)?.imagePath ?? ISLAND_SKINS[0].imagePath;
 
 const ISLAND_SIZE         = 620;
-const CHARACTER_FP_PX     = 112;
+const CHARACTER_FP_PX     = 500;
 const WORLD_SCALE         = 160;
 const MIN_ZOOM            = 0.05;
 const MAX_ZOOM            = 6;
@@ -163,7 +167,6 @@ export default function App() {
           setCharacters(
             raw.map((c) => ({
               ...c,
-              rigPath: c.rigPath ?? `/rigs/${c.id}/rig.json`,
               position: c.position ?? randomRoamTarget(),
             }))
           );
@@ -546,7 +549,6 @@ export default function App() {
       const resultCharacter = await res.json();
       const normalizedCharacter = {
         ...resultCharacter,
-        rigPath: resultCharacter.rigPath ?? `/rigs/${resultCharacter.id}/rig.json`,
       };
       if (evolutionPayload) {
         setCharacters((prev) =>
@@ -647,12 +649,19 @@ export default function App() {
                     const target = roamTargetsRef.current[ch.id];
                     const moving = !!target && Math.hypot(target.x - ch.position.x, target.y - ch.position.y) > 1;
                     const direction: 1 | -1 = !target || target.x >= ch.position.x ? 1 : -1;
+                    const phaseSeed = ch.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+                    const roamCycle = Math.floor(Date.now() / 2600 + phaseSeed) % 2;
+                    const autoMode: RigAnimMode = !moving ? "idle" : roamCycle === 0 ? "walk" : "hop";
+                    const animationMode: RigAnimMode =
+                      ch.animationPreference && ch.animationPreference !== "auto"
+                        ? ch.animationPreference
+                        : autoMode;
                     return (
                       <Character
                         key={ch.id}
                         {...ch}
                         rigPath={ch.rigPath}
-                        moving={moving}
+                        animationMode={animationMode}
                         direction={direction}
                         onClick={() => setSelectedCharacter(ch)}
                       />
@@ -779,6 +788,35 @@ export default function App() {
           <CharacterDetail
             {...selectedCharacter}
             onClose={() => setSelectedCharacter(null)}
+            onRigGenerated={(updated) => {
+              setCharacters((prev) =>
+                prev.map((c) =>
+                  c.id === updated.id
+                    ? { ...c, rigPath: updated.rigPath, riggedAt: updated.riggedAt }
+                    : c
+                )
+              );
+              setSelectedCharacter((prev) =>
+                prev?.id === updated.id
+                  ? { ...prev, rigPath: updated.rigPath, riggedAt: updated.riggedAt }
+                  : prev
+              );
+            }}
+            animationPreference={selectedCharacter.animationPreference ?? "auto"}
+            onAnimationUpdated={(updated) => {
+              setCharacters((prev) =>
+                prev.map((c) =>
+                  c.id === updated.id
+                    ? { ...c, animationPreference: updated.animationPreference }
+                    : c
+                )
+              );
+              setSelectedCharacter((prev) =>
+                prev?.id === updated.id
+                  ? { ...prev, animationPreference: updated.animationPreference }
+                  : prev
+              );
+            }}
             onEvolved={(updated) => {
               setCharacters((prev) =>
                 prev.map((c) =>

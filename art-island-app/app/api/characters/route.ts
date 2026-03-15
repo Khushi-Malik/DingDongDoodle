@@ -35,6 +35,7 @@ const characterSchema = new mongoose.Schema({
   islandId:    Number,
   joints:      { type: mongoose.Schema.Types.Mixed, default: null },
   riggedAt:    { type: Date, default: null },
+  animationPreference: { type: String, default: "auto" },
   personality: { type: mongoose.Schema.Types.Mixed, default: null },
   memories:              { type: [memorySchema],             default: [] },
   evolutionMilestones:   { type: [evolutionMilestoneSchema], default: [] },
@@ -70,6 +71,7 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
     _id:      { toString(): string };
     imageUrl: string;
     rigPath?: string | null;
+    riggedAt?: Date | null;
     name:     string;
     age:      number;
     position: { x: number; y: number };
@@ -84,6 +86,8 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
     id:       c._id.toString(),
     imageUrl: c.imageUrl,
     rigPath:  c.rigPath ?? null,
+    riggedAt: c.riggedAt ?? null,
+    animationPreference: (c as { animationPreference?: string }).animationPreference ?? "auto",
     name:     c.name,
     age:      c.age,
     position: c.position,
@@ -142,6 +146,7 @@ export async function POST(request: Request) {
       position:    body.position,
       islandId:    body.islandId,
       joints:      body.joints ?? null,
+      animationPreference: body.animationPreference ?? "auto",
       personality: body.personality ?? null,
       memories:    [],
       // Seed Stage 1 immediately so versionHistory is never empty
@@ -195,6 +200,15 @@ export async function PATCH(request: Request) {
       if (!memoryId)
         return NextResponse.json({ error: "memoryId is required" }, { status: 400 });
       char.memories = char.memories.filter((m: { id: string }) => m.id !== memoryId);
+
+    // ── set animation preference ─────────────────────────────────────────────
+    } else if (action === "set-animation") {
+      const mode = String(body.animationPreference || "").trim();
+      const allowed = new Set(["auto", "idle", "walk", "hop", "wave", "run", "dance", "sleep"]);
+      if (!allowed.has(mode)) {
+        return NextResponse.json({ error: "Invalid animationPreference" }, { status: 400 });
+      }
+      char.animationPreference = mode;
 
     // ── evolve ───────────────────────────────────────────────────────────────
     } else if (action === "evolve") {
