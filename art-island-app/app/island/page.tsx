@@ -856,7 +856,7 @@ export default function App() {
                       <Character
                         key={ch.id}
                         {...ch}
-                        rigPath={ch.rigPath}
+                        rigPath={null}
                         animationMode={animationMode}
                         direction={direction}
                         onClick={() => setSelectedCharacter(ch)}
@@ -1048,7 +1048,7 @@ export default function App() {
           panX={panX}
           panY={panY}
           zoom={zoom}
-          darkMode={darkMode}
+          darkMode={darkMode ?? false}
           onFlyToIsland={flyToIsland}
         />
       )}
@@ -1058,6 +1058,7 @@ export default function App() {
         {selectedCharacter && (
           <CharacterDetail
             {...selectedCharacter}
+            rigPath={null}
             onClose={() => setSelectedCharacter(null)}
             onRigGenerated={(updated) => {
               setCharacters((prev) =>
