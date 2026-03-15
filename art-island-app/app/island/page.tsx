@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, LogOut, MapPin, Moon, Sun } from "lucide-react";
+import { PersonalityData } from "@/types/character";
 import { Character } from "../components/Character";
 import { CharacterDetail } from "../components/CharacterDetail";
 import { UploadModal } from "../components/UploadModal";
@@ -79,59 +80,59 @@ export default function App() {
     name: string;
     age: number;
     islandId: number;
-    personality: any; // ← add
+    personality: PersonalityData;
   } | null>(null);
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
+    const loadCharacters = async () => {
+      try {
+        const res = await fetch("/api/characters");
+        if (res.status === 401) {
+          router.push("/login");
+          return;
+        }
+        if (!res.ok) throw new Error("Failed to fetch");
+        setCharacters(await res.json());
+      } catch (error) {
+        console.error("Error loading characters:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const loadIslands = async () => {
+      try {
+        const res = await fetch("/api/islands");
+        if (res.status === 401) {
+          router.push("/login");
+          return;
+        }
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        const normalizedIslands = data.map((island: IslandData) => ({
+          ...island,
+          size: ISLAND_SIZE,
+        }));
+        setIslands(normalizedIslands);
+        setNextIslandId(
+          normalizedIslands.length > 0
+            ? Math.max(...normalizedIslands.map((i: IslandData) => i.id)) + 1
+            : 1,
+        );
+
+        if (normalizedIslands.length === 0) {
+          setTutorialStep("create-island");
+          setShowTutorialOverlay(true);
+        }
+      } catch (error) {
+        console.error("Error loading islands:", error);
+      }
+    };
+
     loadCharacters();
     loadIslands();
-  }, []);
-
-  const loadCharacters = async () => {
-    try {
-      const res = await fetch("/api/characters");
-      if (res.status === 401) {
-        router.push("/login");
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to fetch");
-      setCharacters(await res.json());
-    } catch (error) {
-      console.error("Error loading characters:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadIslands = async () => {
-    try {
-      const res = await fetch("/api/islands");
-      if (res.status === 401) {
-        router.push("/login");
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      const normalizedIslands = data.map((island: IslandData) => ({
-        ...island,
-        size: ISLAND_SIZE,
-      }));
-      setIslands(normalizedIslands);
-      setNextIslandId(
-        normalizedIslands.length > 0
-          ? Math.max(...normalizedIslands.map((i: any) => i.id)) + 1
-          : 1,
-      );
-
-      if (normalizedIslands.length === 0) {
-        setTutorialStep("create-island");
-        setShowTutorialOverlay(true);
-      }
-    } catch (error) {
-      console.error("Error loading islands:", error);
-    }
-  };
+  }, [router]);
 
   const handleLogout = async () => {
     await fetch("/api/auth", { method: "DELETE" });
@@ -146,12 +147,7 @@ export default function App() {
   const handleAddIsland = async (
     name: string,
     color: string,
-<<<<<<< HEAD
     border: string,
-    skinId: string,
-=======
-    border: string
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
   ) => {
     try {
       const newIsland: IslandData = {
@@ -161,7 +157,7 @@ export default function App() {
         color,
         border,
         label: name,
-        skin: skinId,
+        skin: "",
       };
 
       const res = await fetch("/api/islands", {
@@ -226,11 +222,7 @@ export default function App() {
   const getIslandCharacterLayouts = (
     islandId: number,
     islandList: IslandData[],
-<<<<<<< HEAD
     characterList: CharacterData[],
-=======
-    characterList: CharacterData[]
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
   ) => {
     const island = islandList.find((item) => item.id === islandId);
     if (!island) return [] as CharacterData[];
@@ -273,19 +265,11 @@ export default function App() {
       const fallback = {
         x: Math.max(
           greenLeft,
-<<<<<<< HEAD
           Math.min(greenRight, candidate.x + ((index % 3) - 1) * 8),
         ),
         y: Math.max(
           greenTopStart,
           Math.min(greenTopEnd, candidate.y + ((index % 2) - 0.5) * 6),
-=======
-          Math.min(greenRight, candidate.x + ((index % 3) - 1) * 8)
-        ),
-        y: Math.max(
-          greenTopStart,
-          Math.min(greenTopEnd, candidate.y + ((index % 2) - 0.5) * 6)
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
         ),
       };
       placedPositions.push(fallback);
@@ -299,11 +283,7 @@ export default function App() {
       layouts[island.id] = getIslandCharacterLayouts(
         island.id,
         islands,
-<<<<<<< HEAD
         characters,
-=======
-        characters
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
       );
     });
     return layouts;
@@ -335,7 +315,7 @@ export default function App() {
     name: string,
     age: number,
     islandId: number,
-    personality: any
+    personality: PersonalityData,
   ) => {
     console.log("handleAddCharacter called", {
       name,
@@ -632,7 +612,7 @@ export default function App() {
       {characters.length === 0 && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center px-4">
           <p className="text-lg text-gray-300">
-            Click "Add Drawing" to place your character on a planet
+            Click &quot;Add Drawing&quot; to place your character on a planet
           </p>
         </div>
       )}

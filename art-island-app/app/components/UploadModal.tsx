@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Camera, Upload, X } from "lucide-react";
+import { PersonalityData } from "@/types/character";
 
 interface IslandData {
   id: number;
@@ -21,13 +22,6 @@ interface UploadModalProps {
   ) => void;
   previewImageUrl?: string;
   islands: IslandData[];
-}
-
-interface PersonalityData {
-  catchphrase: string;
-  traits: string[];
-  dailyActivity: string;
-  favoriteThing: string;
 }
 
 const TRAITS = [
@@ -80,7 +74,7 @@ export function UploadModal({
         name,
         creationTimestamp,
         selectedIslandId,
-        personality
+        personality,
       );
     }
   };
