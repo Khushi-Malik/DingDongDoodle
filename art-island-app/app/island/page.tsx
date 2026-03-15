@@ -44,7 +44,8 @@ export default function App() {
   const router = useRouter();
   const panStartRef = useRef<{ x: number; y: number } | null>(null);
   const [characters, setCharacters] = useState<CharacterData[]>([]);
-  const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null);
+  const [selectedCharacter, setSelectedCharacter] =
+    useState<CharacterData | null>(null);
   const [modalState, setModalState] = useState<ModalState>("none");
   const [pendingDrawing, setPendingDrawing] = useState<string | null>(null);
   const [showNewIslandModal, setShowNewIslandModal] = useState(false);
@@ -62,6 +63,7 @@ export default function App() {
     name: string;
     age: number;
     islandId: number;
+    personality: any; // ← add
   } | null>(null);
 
   useEffect(() => {
@@ -124,7 +126,11 @@ export default function App() {
     y: Math.random() * 70 + 15,
   });
 
-  const handleAddIsland = async (name: string, color: string, border: string) => {
+  const handleAddIsland = async (
+    name: string,
+    color: string,
+    border: string
+  ) => {
     try {
       const newIsland: IslandData = {
         id: nextIslandId,
@@ -192,7 +198,11 @@ export default function App() {
     return { x: 50, y: 50 };
   };
 
-  const getIslandCharacterLayouts = (islandId: number, islandList: IslandData[], characterList: CharacterData[]) => {
+  const getIslandCharacterLayouts = (
+    islandId: number,
+    islandList: IslandData[],
+    characterList: CharacterData[]
+  ) => {
     const island = islandList.find((item) => item.id === islandId);
     if (!island) return [] as CharacterData[];
 
@@ -232,8 +242,14 @@ export default function App() {
 
       // Deterministic fallback using index instead of Math.random()
       const fallback = {
-        x: Math.max(greenLeft, Math.min(greenRight, candidate.x + (index % 3 - 1) * 8)),
-        y: Math.max(greenTopStart, Math.min(greenTopEnd, candidate.y + (index % 2 - 0.5) * 6)),
+        x: Math.max(
+          greenLeft,
+          Math.min(greenRight, candidate.x + ((index % 3) - 1) * 8)
+        ),
+        y: Math.max(
+          greenTopStart,
+          Math.min(greenTopEnd, candidate.y + ((index % 2) - 0.5) * 6)
+        ),
       };
       placedPositions.push(fallback);
       return { ...character, position: fallback };
@@ -243,7 +259,11 @@ export default function App() {
   const islandCharacterLayouts = useMemo(() => {
     const layouts: Record<number, CharacterData[]> = {};
     islands.forEach((island) => {
-      layouts[island.id] = getIslandCharacterLayouts(island.id, islands, characters);
+      layouts[island.id] = getIslandCharacterLayouts(
+        island.id,
+        islands,
+        characters
+      );
     });
     return layouts;
   }, [islands, characters]);
@@ -273,10 +293,16 @@ export default function App() {
     imageFile: File | null,
     name: string,
     age: number,
-    islandId: number
+    islandId: number,
+    personality: any // ← add
   ) => {
-    console.log("handleAddCharacter called", { name, age, islandId });
-    setPendingCharacter({ imageFile, name, age, islandId });
+    console.log("handleAddCharacter called", {
+      name,
+      age,
+      islandId,
+      personality,
+    }); // ← check it arrives
+    setPendingCharacter({ imageFile, name, age, islandId, personality }); // ← store it
     setModalState("rig");
   };
 
@@ -287,7 +313,7 @@ export default function App() {
     console.log("pendingCharacter:", pendingCharacter);
     console.log("pendingDrawing:", pendingDrawing);
     if (!pendingCharacter) return;
-    const { imageFile, name, age, islandId } = pendingCharacter;
+    const { imageFile, name, age, islandId, personality } = pendingCharacter;
 
     try {
       const position = getCharacterPosition(islandId);
@@ -312,6 +338,7 @@ export default function App() {
           position,
           islandId,
           joints,
+          personality,
         }),
       });
 
@@ -421,7 +448,9 @@ export default function App() {
 
   return (
     <div
-      className={`size-full touch-none select-none relative overflow-hidden ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`size-full touch-none select-none relative overflow-hidden ${
+        isPanning ? "cursor-grabbing" : "cursor-grab"
+      }`}
       style={{ backgroundColor: "#e8f9ff" }}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handleCanvasPointerMove}
@@ -438,7 +467,10 @@ export default function App() {
         className="absolute inset-0 pointer-events-none"
       >
         {islands.map((planet, index) => {
-          const displayPosition = getIslandDisplayPosition(index, islands.length);
+          const displayPosition = getIslandDisplayPosition(
+            index,
+            islands.length
+          );
 
           return (
             <div
