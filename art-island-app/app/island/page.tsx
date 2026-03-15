@@ -495,8 +495,9 @@ export default function App() {
         })}
       </div>
 
-      {/* Add Button */}
-      <div className="fixed top-4 sm:top-6 left-4 sm:left-6 flex gap-2 z-10">
+      {/* Top Action Buttons */}
+      <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-10 px-4 w-full max-w-6xl">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
         <button
           onClick={() => setModalState("choose")}
           className="bg-purple-500 hover:bg-purple-600 text-white font-medium px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-2 text-sm sm:text-base"
@@ -521,6 +522,15 @@ export default function App() {
           <span className="hidden sm:inline">Rig Character</span>
           <span className="sm:hidden">Rig</span>
         </Link>
+
+        <Link
+          href="/storyboard"
+          className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-4 sm:px-6 py-2 sm:py-3 rounded-full shadow-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-2 text-sm sm:text-base"
+        >
+          <span className="hidden sm:inline">Storyboard</span>
+          <span className="sm:hidden">Story</span>
+        </Link>
+        </div>
       </div>
 
       {/* Logout */}
@@ -533,11 +543,11 @@ export default function App() {
       </button>
 
       {/* Title */}
-      <div className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 text-center z-10 px-4">
+      <div className="fixed top-3 sm:top-4 left-1/2 -translate-x-1/2 text-center z-10 px-4 max-w-[80vw]">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-gray-800">
           Ding Dong Doodle
         </h1>
-        <p className="text-gray-400 text-xs sm:text-sm mt-1">
+        <p className="text-gray-400 text-xs sm:text-sm mt-1 hidden sm:block">
           Draw. Dream. Discover.
         </p>
       </div>
