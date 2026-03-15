@@ -4,21 +4,6 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { X } from "lucide-react";
 
-interface IslandColor {
-  label: string;
-  color: string;
-  border: string;
-}
-
-const ISLAND_COLORS: IslandColor[] = [
-  { label: "Purple", color: "#EEEDFE", border: "#AFA9EC" },
-  { label: "Green", color: "#E1F5EE", border: "#5DCAA5" },
-  { label: "Orange", color: "#FAEEDA", border: "#EF9F27" },
-  { label: "Pink", color: "#FCE4EC", border: "#EC407A" },
-  { label: "Blue", color: "#E3F2FD", border: "#1976D2" },
-  { label: "Yellow", color: "#FFFDE7", border: "#F57F17" },
-];
-
 interface IslandSkin {
   id: string;
   imagePath: string;
@@ -33,35 +18,26 @@ const ISLAND_SKINS: IslandSkin[] = [
 
 interface NewIslandModalProps {
   onClose: () => void;
-  onSubmit: (
-    name: string,
-    color: string,
-    border: string,
-    skinId: string,
-  ) => void;
+  onSubmit: (name: string, skinId: string) => void;
   isTutorial?: boolean;
+  defaultSkinIndex?: number;
 }
 
 export function NewIslandModal({
   onClose,
   onSubmit,
   isTutorial,
+  defaultSkinIndex = 0,
 }: NewIslandModalProps) {
   const [name, setName] = useState(isTutorial ? "Toronto" : "");
-  const [selectedColor, setSelectedColor] = useState(
-    isTutorial ? ISLAND_COLORS[3] : ISLAND_COLORS[0],
-  ); // Pink for tutorial
-  const [selectedSkin, setSelectedSkin] = useState(ISLAND_SKINS[0]);
+  const [selectedSkin, setSelectedSkin] = useState(
+    ISLAND_SKINS[defaultSkinIndex % ISLAND_SKINS.length],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      onSubmit(
-        name,
-        selectedColor.color,
-        selectedColor.border,
-        selectedSkin.id,
-      );
+      onSubmit(name, selectedSkin.id);
       onClose();
     }
   };
@@ -142,35 +118,6 @@ export function NewIslandModal({
                   <div className="text-xs font-medium text-gray-700 mt-1">
                     {skin.label}
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Choose Color
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {ISLAND_COLORS.map((colorOption) => (
-                <button
-                  key={colorOption.label}
-                  type="button"
-                  onClick={() => setSelectedColor(colorOption)}
-                  className={`relative w-14 h-14 rounded-lg transition-all ${
-                    selectedColor.label === colorOption.label
-                      ? "ring-4 ring-offset-2 ring-gray-400 scale-105"
-                      : "hover:scale-110"
-                  }`}
-                  style={{
-                    backgroundColor: colorOption.color,
-                    border: `2px solid ${colorOption.border}`,
-                  }}
-                  title={colorOption.label}
-                >
-                  {selectedColor.label === colorOption.label && (
-                    <div className="absolute inset-0 rounded-lg border-2 border-gray-800" />
-                  )}
                 </button>
               ))}
             </div>
