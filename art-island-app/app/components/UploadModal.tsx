@@ -91,6 +91,7 @@ export function UploadModal({
         exit={{ scale: 0.8, y: 50 }}
         transition={{ type: "spring", damping: 25 }}
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
