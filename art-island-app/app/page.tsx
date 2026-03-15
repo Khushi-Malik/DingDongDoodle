@@ -82,10 +82,10 @@ export default function LandingPage() {
       <div className="relative z-10 text-center mb-12">
         <div className="bg-white/70 backdrop-blur-sm px-24 py-6 shadow-lg flex flex-col items-center gap-6 rounded">
           <h1 className="text-5xl md:text-7xl font-bold text-black drop-shadow-lg">
-            Art Island
+            Ding Dong Doodle
           </h1>
           <p className="text-gray-700 text-xl mt-2">
-            Where Your Drawings Come to Life :D
+            Draw. Dream. Discover.
           </p>
           <button
             onClick={() => router.push("/login")}
