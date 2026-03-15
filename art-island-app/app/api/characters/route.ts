@@ -30,6 +30,7 @@ const characterSchema = new mongoose.Schema({
   name:        String,
   age:         Number,
   imageUrl:    String,
+  rigPath:     { type: String, default: null },
   position:    { x: Number, y: Number },
   islandId:    Number,
   joints:      { type: mongoose.Schema.Types.Mixed, default: null },
@@ -68,6 +69,7 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
   const c = char as unknown as {
     _id:      { toString(): string };
     imageUrl: string;
+    rigPath?: string | null;
     name:     string;
     age:      number;
     position: { x: number; y: number };
@@ -81,6 +83,7 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
   return {
     id:       c._id.toString(),
     imageUrl: c.imageUrl,
+    rigPath:  c.rigPath ?? null,
     name:     c.name,
     age:      c.age,
     position: c.position,
@@ -135,6 +138,7 @@ export async function POST(request: Request) {
       name:        body.name,
       age:         body.age,
       imageUrl:    body.imageUrl,
+      rigPath:     body.rigPath ?? null,
       position:    body.position,
       islandId:    body.islandId,
       joints:      body.joints ?? null,

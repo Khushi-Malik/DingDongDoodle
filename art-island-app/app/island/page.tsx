@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, LogOut, MapPin, Moon, Sun, BookOpen, Bone, ZoomIn, ZoomOut, Maximize2, Navigation } from "lucide-react";
@@ -20,22 +20,28 @@ type TutorialStep = "create-island" | "draw-maple" | "none";
 interface CharacterData {
   id: string;
   imageUrl: string;
+  rigPath?: string | null;
   name: string;
   age: number;
   position: { x: number; y: number };
   islandId: number;
-  personality?: PersonalityData | null;
-  memories?: Array<{ id: string; text: string; createdAt: string | Date }>;
+  personality?: {
+    catchphrase?: string;
+    traits?: string[];
+    dailyActivity?: string;
+    favoriteThing?: string;
+  } | null;
+  memories?: Array<{ id: string; text: string; createdAt?: string }>;
   evolutionMilestones?: Array<{
     imageUrl: string;
     createdAt: string | Date;
-    label?: string;
+    label: string;
   }>;
   versionHistory?: Array<{
     imageUrl: string;
     createdAt: string | Date;
     stage: number;
-    label?: string;
+    label: string;
   }>;
 }
 
@@ -68,6 +74,18 @@ const ZOOM_STEP           = 0.25;
 const ZOOM_SENSITIVITY    = 0.0012;
 const FLY_DURATION_MS     = 500;
 const FLY_TARGET_Y_OFFSET = 0;
+const ROAM_MIN_X          = 15;
+const ROAM_MAX_X          = 85;
+const ROAM_MIN_Y          = 10;
+const ROAM_MAX_Y          = 45;
+const ROAM_SPEED          = 7.5;
+
+function randomRoamTarget() {
+  return {
+    x: ROAM_MIN_X + Math.random() * (ROAM_MAX_X - ROAM_MIN_X),
+    y: ROAM_MIN_Y + Math.random() * (ROAM_MAX_Y - ROAM_MIN_Y),
+  };
+}
 
 function islandWorldPos(island: IslandData) {
   return {
@@ -125,6 +143,9 @@ export default function App() {
     startX: number; startY: number;
   } | null>(null);
   const flyRafRef = useRef<number | null>(null);
+  const roamRafRef = useRef<number | null>(null);
+  const roamLastTickRef = useRef<number | null>(null);
+  const roamTargetsRef = useRef<Record<string, { x: number; y: number }>>({});
   const panXRef   = useRef(panX);
   const panYRef   = useRef(panY);
   const zoomRef   = useRef(zoom);
@@ -137,7 +158,16 @@ export default function App() {
       try {
         const res = await fetch("/api/characters");
         if (res.status === 401) { router.push("/login"); return; }
-        if (res.ok) setCharacters(await res.json());
+        if (res.ok) {
+          const raw: CharacterData[] = await res.json();
+          setCharacters(
+            raw.map((c) => ({
+              ...c,
+              rigPath: c.rigPath ?? `/rigs/${c.id}/rig.json`,
+              position: c.position ?? randomRoamTarget(),
+            }))
+          );
+        }
       } catch (e) { console.error(e); } finally { setLoading(false); }
     };
     const loadIslands = async () => {
@@ -168,6 +198,85 @@ export default function App() {
     setDraggingIslandId(null);
     setArmedIslandId(null);
   }, [selectedCharacter]);
+
+  useEffect(() => {
+    const ids = new Set(characters.map((c) => c.id));
+    Object.keys(roamTargetsRef.current).forEach((id) => {
+      if (!ids.has(id)) delete roamTargetsRef.current[id];
+    });
+  }, [characters]);
+
+  useEffect(() => {
+    if (islands.length === 0) return;
+
+    const tick = (now: number) => {
+      if (selectedCharacter || modalState !== "none") {
+        roamLastTickRef.current = now;
+        roamRafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const last = roamLastTickRef.current ?? now;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      roamLastTickRef.current = now;
+
+      setCharacters((prev) => {
+        let changed = false;
+
+        const next = prev.map((ch) => {
+          const island = islands.find((i) => i.id === ch.islandId);
+          if (!island) return ch;
+
+          const current = ch.position ?? randomRoamTarget();
+          let target = roamTargetsRef.current[ch.id];
+          if (!target) {
+            target = randomRoamTarget();
+            roamTargetsRef.current[ch.id] = target;
+          }
+
+          let dx = target.x - current.x;
+          let dy = target.y - current.y;
+          let dist = Math.hypot(dx, dy);
+
+          if (dist < 1.2) {
+            target = randomRoamTarget();
+            roamTargetsRef.current[ch.id] = target;
+            dx = target.x - current.x;
+            dy = target.y - current.y;
+            dist = Math.hypot(dx, dy);
+          }
+
+          if (dist < 0.001) return ch;
+
+          const step = Math.min(dist, ROAM_SPEED * dt);
+          const nx = Math.max(ROAM_MIN_X, Math.min(ROAM_MAX_X, current.x + (dx / dist) * step));
+          const ny = Math.max(ROAM_MIN_Y, Math.min(ROAM_MAX_Y, current.y + (dy / dist) * step));
+
+          if (
+            ch.position &&
+            Math.abs(ch.position.x - nx) < 0.001 &&
+            Math.abs(ch.position.y - ny) < 0.001
+          ) {
+            return ch;
+          }
+
+          changed = true;
+          return { ...ch, position: { x: nx, y: ny } };
+        });
+
+        return changed ? next : prev;
+      });
+
+      roamRafRef.current = requestAnimationFrame(tick);
+    };
+
+    roamRafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (roamRafRef.current) cancelAnimationFrame(roamRafRef.current);
+      roamRafRef.current = null;
+      roamLastTickRef.current = null;
+    };
+  }, [islands, selectedCharacter, modalState]);
 
   const flyTo = useCallback((worldX: number, worldY: number, targetZoom?: number) => {
     if (flyRafRef.current) cancelAnimationFrame(flyRafRef.current);
@@ -349,35 +458,6 @@ export default function App() {
     return { x: 50, y: 50 };
   };
 
-  const getIslandCharLayouts = useCallback((islandId: number) => {
-    const island = islands.find((i) => i.id === islandId);
-    if (!island) return [] as CharacterData[];
-    const chars  = characters.filter((c) => c.islandId === islandId);
-    const placed: { x: number; y: number }[] = [];
-    const minDist = (CHARACTER_FP_PX / island.size) * 100;
-    const gL = 15, gR = 85, gT = 10, gB = 45, gW = 70, gH = 35;
-    return chars.map((ch, i) => {
-      const cols = Math.ceil(Math.sqrt(chars.length));
-      const x    = gL + (gW * (i % cols + 0.5)) / cols;
-      const y    = gT + (gH * (Math.floor(i / cols) + 0.5)) / cols;
-      const cand = { x, y };
-      if (!placed.some((p) => Math.hypot(p.x - x, p.y - y) < minDist)) {
-        placed.push(cand); return { ...ch, position: cand };
-      }
-      const fb = {
-        x: Math.max(gL, Math.min(gR, x + ((i % 3) - 1) * 8)),
-        y: Math.max(gT, Math.min(gB, y + ((i % 2) - 0.5) * 6)),
-      };
-      placed.push(fb); return { ...ch, position: fb };
-    });
-  }, [islands, characters]);
-
-  const islandCharLayouts = useMemo(() => {
-    const m: Record<number, CharacterData[]> = {};
-    islands.forEach((i) => { m[i.id] = getIslandCharLayouts(i.id); });
-    return m;
-  }, [islands, getIslandCharLayouts]);
-
   const handleAddCharacter = (
     imageFile: File | null, name: string, age: number,
     islandId: number, personality: PersonalityData, evolveMemoryText?: string,
@@ -464,12 +544,16 @@ export default function App() {
         throw new Error(errorBody?.error || "Failed to save character");
       }
       const resultCharacter = await res.json();
+      const normalizedCharacter = {
+        ...resultCharacter,
+        rigPath: resultCharacter.rigPath ?? `/rigs/${resultCharacter.id}/rig.json`,
+      };
       if (evolutionPayload) {
         setCharacters((prev) =>
-          prev.map((c) => (c.id === resultCharacter.id ? resultCharacter : c)),
+          prev.map((c) => (c.id === normalizedCharacter.id ? normalizedCharacter : c)),
         );
       } else {
-        setCharacters((p) => [...p, resultCharacter]);
+        setCharacters((p) => [...p, normalizedCharacter]);
       }
       setPendingDrawing(null);
       setPendingCharacter(null);
@@ -557,9 +641,23 @@ export default function App() {
                   transition: "outline 0.15s",
                 }}
               >
-                {(islandCharLayouts[planet.id] ?? []).map((ch) => (
-                  <Character key={ch.id} {...ch} onClick={() => setSelectedCharacter(ch)} />
-                ))}
+                {characters
+                  .filter((ch) => ch.islandId === planet.id)
+                  .map((ch) => {
+                    const target = roamTargetsRef.current[ch.id];
+                    const moving = !!target && Math.hypot(target.x - ch.position.x, target.y - ch.position.y) > 1;
+                    const direction: 1 | -1 = !target || target.x >= ch.position.x ? 1 : -1;
+                    return (
+                      <Character
+                        key={ch.id}
+                        {...ch}
+                        rigPath={ch.rigPath}
+                        moving={moving}
+                        direction={direction}
+                        onClick={() => setSelectedCharacter(ch)}
+                      />
+                    );
+                  })}
               </div>
               <div className="flex items-center justify-center gap-2 mt-3">
                 <p className="text-lg font-medium select-none" style={{ color: txtMuted }}>
