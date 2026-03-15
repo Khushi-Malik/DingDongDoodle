@@ -139,9 +139,9 @@ export default function LoginPage() {
         <Image
           src="/cow.png"
           alt="Cow"
-          width={200}
-          height={200}
-          className="object-contain translate-y-7"
+          width={120}
+          height={120}
+          className="object-contain"
         />
         <Image
           src="/octopus.png"
