@@ -54,7 +54,9 @@ export function UploadModal({
   const [creationDate, setCreationDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [selectedIslandId, setSelectedIslandId] = useState(islands[0]?.id || 1);
+  const [selectedIslandId, setSelectedIslandId] = useState<number | null>(
+    isEvolution ? (evolutionIslandId ?? null) : null,
+  );
   const [showPersonality, setShowPersonality] = useState(false);
   const [evolveMemoryText, setEvolveMemoryText] = useState("");
   const [personality, setPersonality] = useState<PersonalityData>({
@@ -80,13 +82,13 @@ export function UploadModal({
         imageFile,
         evolutionName || name || "Evolved",
         Date.now(),
-        evolutionIslandId ?? selectedIslandId,
+        evolutionIslandId ?? selectedIslandId ?? islands[0]?.id ?? 1,
         personality,
         evolveMemoryText,
       );
       return;
     }
-    if ((imageFile || previewImageUrl) && name && creationDate) {
+    if ((imageFile || previewImageUrl) && name && creationDate && selectedIslandId !== null) {
       const creationTimestamp = new Date(creationDate).getTime();
       onSubmit(
         imageFile,
@@ -235,10 +237,17 @@ export function UploadModal({
             </label>
             <select
               id="island"
-              value={selectedIslandId}
-              onChange={(e) => setSelectedIslandId(parseInt(e.target.value))}
+              value={selectedIslandId ?? ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedIslandId(value ? parseInt(value, 10) : null);
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none bg-white"
+              required
             >
+              <option value="" disabled>
+                Select an island
+              </option>
               {islands.map((island) => (
                 <option key={island.id} value={island.id}>
                   {island.label}
@@ -348,7 +357,10 @@ export function UploadModal({
           <div className="flex gap-3 pt-4">
             <button
               type="submit"
-              disabled={!(imageFile || previewImageUrl) || (!isEvolution && !name)}
+              disabled={
+                !(imageFile || previewImageUrl) ||
+                (!isEvolution && (!name || selectedIslandId === null))
+              }
               className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors"
             >
               {isEvolution ? "Continue to Rig" : "Add to Island!"}
