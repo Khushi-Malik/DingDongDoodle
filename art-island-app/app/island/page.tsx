@@ -335,10 +335,7 @@ export default function App() {
     name: string,
     age: number,
     islandId: number,
-<<<<<<< HEAD
-=======
-    personality: any // ← add
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
+    personality: any
   ) => {
     console.log("handleAddCharacter called", {
       name,
