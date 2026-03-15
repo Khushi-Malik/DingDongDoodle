@@ -15,11 +15,21 @@ interface UploadModalProps {
     imageFile: File | null,
     name: string,
     age: number,
-    islandId: number
+    islandId: number,
+    personality: PersonalityData
   ) => void;
   previewImageUrl?: string;
   islands: IslandData[];
 }
+
+interface PersonalityData {
+  catchphrase: string;
+  traits: string[];
+  dailyActivity: string;
+  favoriteThing: string;
+}
+
+const TRAITS = ["Brave", "Silly", "Cozy", "Adventurous", "Sneaky", "Cheerful", "Grumpy", "Magical"];
 
 export function UploadModal({
   onClose,
@@ -30,8 +40,15 @@ export function UploadModal({
   const [imageUrl, setImageUrl] = useState<string>(previewImageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [creationDate, setCreationDate] = useState("");
+  const [creationDate, setCreationDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedIslandId, setSelectedIslandId] = useState(islands[0]?.id || 1);
+  const [showPersonality, setShowPersonality] = useState(false);
+  const [personality, setPersonality] = useState<PersonalityData>({
+    catchphrase: "",
+    traits: [],
+    dailyActivity: "",
+    favoriteThing: "",
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,12 +61,19 @@ export function UploadModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Allow submission if we have an image (either from file or preview) and required fields
     if ((imageFile || previewImageUrl) && name && creationDate) {
-      // Store the creation date as a timestamp (milliseconds since epoch)
       const creationTimestamp = new Date(creationDate).getTime();
-      onSubmit(imageFile, name, creationTimestamp, selectedIslandId);
+      onSubmit(imageFile, name, creationTimestamp, selectedIslandId, personality);
     }
+  };
+
+  const toggleTrait = (trait: string) => {
+    setPersonality({
+      ...personality,
+      traits: personality.traits.includes(trait)
+        ? personality.traits.filter((t) => t !== trait)
+        : [...personality.traits, trait],
+    });
   };
 
   return (
@@ -61,7 +85,7 @@ export function UploadModal({
       onClick={onClose}
     >
       <motion.div
-        className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4"
+        className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
         initial={{ scale: 0.8, y: 50 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.8, y: 50 }}
@@ -85,7 +109,6 @@ export function UploadModal({
               {previewImageUrl ? "Your Drawing" : "Upload Your Drawing"}
             </label>
             {previewImageUrl ? (
-              // Show preview image when using a drawing
               <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
                 <img
                   src={previewImageUrl}
@@ -94,7 +117,6 @@ export function UploadModal({
                 />
               </div>
             ) : (
-              // Show file upload when not using a drawing
               <div className="relative">
                 <input
                   type="file"
@@ -110,28 +132,19 @@ export function UploadModal({
                 >
                   <Camera className="w-6 h-6 text-gray-400" />
                   <Upload className="w-6 h-6 text-gray-400" />
-                  <span className="text-gray-600">
-                    Take Photo or Choose File
-                  </span>
+                  <span className="text-gray-600">Take Photo or Choose File</span>
                 </label>
               </div>
             )}
             {imageUrl && !previewImageUrl && (
               <div className="mt-4 w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={imageUrl}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
+                <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
               </div>
             )}
           </div>
 
           <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Character's Name
             </label>
             <input
@@ -146,10 +159,7 @@ export function UploadModal({
           </div>
 
           <div>
-            <label
-              htmlFor="creationDate"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="creationDate" className="block text-sm font-medium text-gray-700 mb-2">
               Art Creation Date
             </label>
             <input
@@ -164,10 +174,7 @@ export function UploadModal({
           </div>
 
           <div>
-            <label
-              htmlFor="island"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="island" className="block text-sm font-medium text-gray-700 mb-2">
               Choose Island
             </label>
             <select
@@ -184,9 +191,68 @@ export function UploadModal({
             </select>
           </div>
 
+          {/* Personality Section */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowPersonality(!showPersonality)}
+              className="text-sm text-black hover:underline font-medium"
+            >
+              {showPersonality ? "Hide personality ▲" : "Give them a personality! (optional) ▼"}
+            </button>
+
+            {showPersonality && (
+              <div className="mt-3 space-y-3">
+                <input
+                  type="text"
+                  placeholder="Their catchphrase?"
+                  value={personality.catchphrase}
+                  onChange={(e) => setPersonality({ ...personality, catchphrase: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-sm"
+                />
+
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Personality traits</p>
+                  <div className="flex flex-wrap gap-2">
+                    {TRAITS.map((trait) => (
+                      <button
+                        key={trait}
+                        type="button"
+                        onClick={() => toggleTrait(trait)}
+                        className={`px-3 py-1 rounded-full text-sm border transition-all ${
+                          personality.traits.includes(trait)
+                            ? "bg-gray-500 text-white border-gray-500"
+                            : "bg-white text-gray-600 border-gray-300 hover:border-purple-400"
+                        }`}
+                      >
+                        {trait}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="What do they do all day?"
+                  value={personality.dailyActivity}
+                  onChange={(e) => setPersonality({ ...personality, dailyActivity: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-sm"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Their favourite thing?"
+                  value={personality.favoriteThing}
+                  onChange={(e) => setPersonality({ ...personality, favoriteThing: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-sm"
+                />
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl"
+            className="w-full bg-black text-white font-bold py-3 rounded hover:-translate-y-1 transition-all"
           >
             Add to Island!
           </button>
