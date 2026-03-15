@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/app/components/Navbar";
 
@@ -42,20 +41,6 @@ interface StorySettingData {
   label: string;
   emoji: string;
   custom?: boolean;
-}
-
-interface StoryData {
-  id: string;
-  title: string;
-  content: string;
-  characterIds: string[];
-  characterNames: string[];
-  concept: string;
-  conceptLabel?: string;
-  setting?: string;
-  settingLabel?: string;
-  childName?: string;
-  createdAt: string;
 }
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
@@ -279,80 +264,6 @@ function ThemeChip({
   );
 }
 
-// ─── StoryCard ────────────────────────────────────────────────────────────────
-
-function StoryCard({
-  story,
-  allThemes,
-  allSettings,
-  onView,
-}: {
-  story: StoryData;
-  allThemes: ThemeData[];
-  allSettings: StorySettingData[];
-  onView: () => void;
-}) {
-  const theme = allThemes.find((t) => t.id === story.concept);
-  const themeLabel = theme?.label ?? story.conceptLabel ?? story.concept;
-  const themeEmoji = theme?.emoji ?? "📖";
-  const setting = allSettings.find((s) => s.id === story.setting);
-  const settingLabel = setting?.label ?? story.settingLabel;
-  const settingEmoji = setting?.emoji ?? "📍";
-
-  return (
-    <article className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-serif text-lg font-bold text-stone-900 leading-snug">
-            {story.title}
-          </h3>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {story.characterNames.map((name) => (
-              <span
-                key={`${story.id}-${name}`}
-                className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600"
-              >
-                {name}
-              </span>
-            ))}
-            <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-              {themeEmoji} {themeLabel}
-            </span>
-            {settingLabel && (
-              <span className="rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-xs font-medium text-violet-700">
-                {settingEmoji} {settingLabel}
-              </span>
-            )}
-            {story.childName && (
-              <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-xs text-sky-700">
-                for {story.childName}
-              </span>
-            )}
-          </div>
-        </div>
-        <p className="shrink-0 text-xs text-stone-400 mt-0.5">
-          {new Date(story.createdAt).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })}
-        </p>
-      </div>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-stone-700 line-clamp-5">
-        {story.content}
-      </p>
-      <div className="mt-4">
-        <button
-          type="button"
-          onClick={onView}
-          className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-stone-50"
-        >
-          View full story
-        </button>
-      </div>
-    </article>
-  );
-}
-
 // ─── StepLabel ────────────────────────────────────────────────────────────────
 
 function StepLabel({
@@ -457,17 +368,13 @@ function Field({
 
 export default function StoryboardPage() {
   const router = useRouter();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
 
   const [characters, setCharacters] = useState<CharacterData[]>([]);
   const [customThemes, setCustomThemes] = useState<ThemeData[]>([]);
   const [customSettings, setCustomSettings] = useState<StorySettingData[]>([]);
-  const [stories, setStories] = useState<StoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean | null>(null);
-  const [hydrated, setHydrated] = useState(false);
 
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>(
     [],
@@ -491,10 +398,6 @@ export default function StoryboardPage() {
   const [newSettingEmoji, setNewSettingEmoji] = useState("✨");
   const [savingSetting, setSavingSetting] = useState(false);
 
-  const [activeStory, setActiveStory] = useState<StoryData | null>(null);
-  const [narrating, setNarrating] = useState(false);
-  const [narratingId, setNarratingId] = useState<string | null>(null);
-
   const [generating, setGenerating] = useState(false);
   const [generatedStory, setGeneratedStory] = useState<{
     title: string;
@@ -517,27 +420,23 @@ export default function StoryboardPage() {
     try {
       setLoading(true);
       setError(null);
-      const [charsRes, storiesRes, themesRes, settingsRes] = await Promise.all([
+      const [charsRes, themesRes, settingsRes] = await Promise.all([
         fetch("/api/characters"),
-        fetch("/api/stories"),
         fetch("/api/themes"),
         fetch("/api/story-settings"),
       ]);
-      if ([charsRes, storiesRes].some((r) => r.status === 401)) {
+      if (charsRes.status === 401) {
         router.push("/login");
         return;
       }
       if (!charsRes.ok) throw new Error("Failed to load characters");
-      if (!storiesRes.ok) throw new Error("Failed to load stories");
-      const [charsData, storiesData, themesData, settingsData] =
+      const [charsData, themesData, settingsData] =
         await Promise.all([
           charsRes.json(),
-          storiesRes.json(),
           themesRes.ok ? themesRes.json() : Promise.resolve([]),
           settingsRes.ok ? settingsRes.json() : Promise.resolve([]),
         ]);
       setCharacters(charsData);
-      setStories(storiesData);
       setCustomThemes(themesData);
       setCustomSettings(settingsData);
     } catch {
@@ -555,7 +454,6 @@ export default function StoryboardPage() {
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
     setDarkMode(saved ? JSON.parse(saved) : false);
-    setHydrated(true);
   }, []);
 
   // Sync with localStorage when darkMode changes
@@ -682,56 +580,6 @@ export default function StoryboardPage() {
     });
     if (res.ok) {
       setCustomSettings((prev) => prev.filter((s) => s.id !== settingId));
-    }
-  };
-
-  const stopNarration = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-    setNarrating(false);
-    setNarratingId(null);
-  };
-
-  const handleNarrateStory = async (story: StoryData) => {
-    try {
-      if (narrating && narratingId === story.id) {
-        stopNarration();
-        return;
-      }
-
-      stopNarration();
-      setNarrating(true);
-      setNarratingId(story.id);
-
-      const res = await fetch("/api/story-narrate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: story.title, content: story.content }),
-      });
-
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || "Could not narrate this story");
-      }
-
-      const blob = await res.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      audioUrlRef.current = audioUrl;
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      audio.onended = () => stopNarration();
-      audio.onerror = () => stopNarration();
-      await audio.play();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Narration failed.");
-      stopNarration();
     }
   };
 
@@ -914,15 +762,13 @@ export default function StoryboardPage() {
   const textMain = darkMode ? "#f0f6ff" : "#1a1a1a";
   const textMuted = darkMode ? "#7ea8c4" : "#888780";
   const borderColor = darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
-  const cardBg = darkMode ? "#1e3a52" : "#f9fafb";
-  const inputBg = darkMode ? "rgba(255,255,255,0.05)" : "#ffffff";
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
       <Navbar
         title="Create New Story"
         subtitle="Build a personalized story from your characters"
-        darkMode={darkMode}
+        darkMode={darkMode ?? false}
         onDarkModeToggle={() => setDarkMode((p) => !p)}
         showBackButton={true}
       />
@@ -975,9 +821,6 @@ export default function StoryboardPage() {
                 n={1}
                 label="Choose characters"
                 sub="Click to select · expand each card to view and add memories"
-                darkMode={darkMode}
-                textMain={textMain}
-                textMuted={textMuted}
               />
 
               {characters.length === 0 ? (
@@ -1359,96 +1202,7 @@ export default function StoryboardPage() {
           </div>
         )}
 
-        {/* Saved stories */}
-        <div className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-serif text-xl font-bold text-stone-900">
-              Saved stories
-            </h2>
-            <p className="text-xs text-stone-400">
-              {stories.length} {stories.length === 1 ? "story" : "stories"}
-            </p>
-          </div>
-
-          {stories.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-stone-300 bg-white py-14 text-center">
-              <p className="text-sm text-stone-400">
-                Saved stories will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {stories.map((story) => (
-                <StoryCard
-                  key={story.id}
-                  story={story}
-                  allThemes={allThemes}
-                  allSettings={allSettings}
-                  onView={() => setActiveStory(story)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
       </main>
-
-      {activeStory && (
-        <div className="fixed inset-0 z-50 bg-black/45 p-4 sm:p-8">
-          <div className="mx-auto h-full max-w-3xl rounded-2xl bg-white shadow-xl border border-stone-200 overflow-hidden flex flex-col">
-            <div className="border-b border-stone-200 px-5 py-4 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="font-serif text-xl font-bold text-stone-900 leading-tight">
-                  {activeStory.title}
-                </h3>
-                <p className="text-xs text-stone-400 mt-0.5">
-                  {new Date(activeStory.createdAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleNarrateStory(activeStory)}
-                  className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
-                  title="Narrate story"
-                >
-                  {narrating && narratingId === activeStory.id
-                    ? "🔈 Stop"
-                    : "🔊 Narrate"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopNarration();
-                    setActiveStory(null);
-                  }}
-                  className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="px-5 py-4 overflow-y-auto space-y-4">
-              <div className="flex flex-wrap gap-1.5">
-                {activeStory.characterNames.map((name) => (
-                  <span
-                    key={`view-${activeStory.id}-${name}`}
-                    className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600"
-                  >
-                    {name}
-                  </span>
-                ))}
-              </div>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700">
-                {activeStory.content}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
