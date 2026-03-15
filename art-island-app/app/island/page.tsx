@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, LogOut, MapPin } from "lucide-react";
@@ -44,8 +44,7 @@ export default function App() {
   const router = useRouter();
   const panStartRef = useRef<{ x: number; y: number } | null>(null);
   const [characters, setCharacters] = useState<CharacterData[]>([]);
-  const [selectedCharacter, setSelectedCharacter] =
-    useState<CharacterData | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterData | null>(null);
   const [modalState, setModalState] = useState<ModalState>("none");
   const [pendingDrawing, setPendingDrawing] = useState<string | null>(null);
   const [showNewIslandModal, setShowNewIslandModal] = useState(false);
@@ -125,11 +124,7 @@ export default function App() {
     y: Math.random() * 70 + 15,
   });
 
-  const handleAddIsland = async (
-    name: string,
-    color: string,
-    border: string
-  ) => {
+  const handleAddIsland = async (name: string, color: string, border: string) => {
     try {
       const newIsland: IslandData = {
         id: nextIslandId,
@@ -197,17 +192,16 @@ export default function App() {
     return { x: 50, y: 50 };
   };
 
-  const getIslandCharacterLayouts = (islandId: number) => {
-    const island = islands.find((item) => item.id === islandId);
+  const getIslandCharacterLayouts = (islandId: number, islandList: IslandData[], characterList: CharacterData[]) => {
+    const island = islandList.find((item) => item.id === islandId);
     if (!island) return [] as CharacterData[];
 
-    const islandCharacters = characters.filter(
+    const islandCharacters = characterList.filter(
       (char) => char.islandId === islandId
     );
     const placedPositions: Array<{ x: number; y: number }> = [];
     const minDistance = (CHARACTER_FOOTPRINT_PX / island.size) * 100;
 
-    // Green area boundaries
     const greenTopStart = 10;
     const greenTopEnd = 45;
     const greenLeft = 15;
@@ -216,18 +210,15 @@ export default function App() {
     const greenHeight = greenTopEnd - greenTopStart;
 
     return islandCharacters.map((character, index) => {
-      // Spread characters evenly across the green area
       const cols = Math.ceil(Math.sqrt(islandCharacters.length));
       const row = Math.floor(index / cols);
       const col = index % cols;
 
-      // Base position spread across green area
       const x = greenLeft + (greenWidth * (col + 0.5)) / cols;
       const y = greenTopStart + (greenHeight * (row + 0.5)) / cols;
 
       const candidate = { x, y };
 
-      // Try collision detection
       const isColliding = placedPositions.some((position) => {
         const dx = position.x - candidate.x;
         const dy = position.y - candidate.y;
@@ -236,30 +227,26 @@ export default function App() {
 
       if (!isColliding) {
         placedPositions.push(candidate);
-        return {
-          ...character,
-          position: candidate,
-        };
+        return { ...character, position: candidate };
       }
 
-      // Fallback with slight offset
+      // Deterministic fallback using index instead of Math.random()
       const fallback = {
-        x: Math.max(
-          greenLeft,
-          Math.min(greenRight, candidate.x + (Math.random() - 0.5) * 15),
-        ),
-        y: Math.max(
-          greenTopStart,
-          Math.min(greenTopEnd, candidate.y + (Math.random() - 0.5) * 10),
-        ),
+        x: Math.max(greenLeft, Math.min(greenRight, candidate.x + (index % 3 - 1) * 8)),
+        y: Math.max(greenTopStart, Math.min(greenTopEnd, candidate.y + (index % 2 - 0.5) * 6)),
       };
       placedPositions.push(fallback);
-      return {
-        ...character,
-        position: fallback,
-      };
+      return { ...character, position: fallback };
     });
   };
+
+  const islandCharacterLayouts = useMemo(() => {
+    const layouts: Record<number, CharacterData[]> = {};
+    islands.forEach((island) => {
+      layouts[island.id] = getIslandCharacterLayouts(island.id, islands, characters);
+    });
+    return layouts;
+  }, [islands, characters]);
 
   const getIslandDisplayPosition = (index: number, total: number) => {
     const columns = Math.max(1, Math.ceil(Math.sqrt(total)));
@@ -355,11 +342,9 @@ export default function App() {
     const newZoom = Math.min(Math.max(zoom - e.deltaY * 0.001, 0.3), 3);
     const zoomRatio = newZoom / zoom;
 
-    // Mouse position relative to screen center
     const mouseX = e.clientX - window.innerWidth / 2;
     const mouseY = e.clientY - window.innerHeight / 2;
 
-    // Adjust pan so the point under the cursor stays fixed
     setPanX((prev) => mouseX + (prev - mouseX) * zoomRatio);
     setPanY((prev) => mouseY + (prev - mouseY) * zoomRatio);
     setZoom(newZoom);
@@ -453,10 +438,7 @@ export default function App() {
         className="absolute inset-0 pointer-events-none"
       >
         {islands.map((planet, index) => {
-          const displayPosition = getIslandDisplayPosition(
-            index,
-            islands.length
-          );
+          const displayPosition = getIslandDisplayPosition(index, islands.length);
 
           return (
             <div
@@ -476,7 +458,7 @@ export default function App() {
                   backgroundPosition: "center",
                 }}
               >
-                {getIslandCharacterLayouts(planet.id).map((character) => (
+                {(islandCharacterLayouts[planet.id] ?? []).map((character) => (
                   <Character
                     key={character.id}
                     {...character}
