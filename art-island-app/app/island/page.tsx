@@ -492,18 +492,11 @@ export default function App() {
 
   return (
     <div
-<<<<<<< HEAD
       className={`size-full touch-none select-none relative overflow-hidden ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
       style={{
         backgroundColor: darkMode ? "#1a3a52" : "#e8f9ff",
         opacity: darkMode ? 0.9 : 1,
       }}
-=======
-      className={`size-full touch-none select-none relative overflow-hidden ${
-        isPanning ? "cursor-grabbing" : "cursor-grab"
-      }`}
-      style={{ backgroundColor: "#e8f9ff" }}
->>>>>>> 0b0654633d076fd269a280cc16dc15cf0ec1e745
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={handleCanvasPointerUp}
