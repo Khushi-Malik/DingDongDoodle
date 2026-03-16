@@ -38,39 +38,24 @@ export interface CharacterDetailProps {
   versionHistory?: VersionStage[];
   onClose: () => void;
   onRigGenerated?: (updated: { id: string; rigPath: string; riggedAt: string }) => void;
-  onJointsUpdated?: (updated: {
-    id: string;
-    joints: Record<string, { x: number; y: number }>;
-    riggedAt: string;
-  }) => void;
+  onJointsUpdated?: (updated: { id: string; joints: Record<string, { x: number; y: number }>; riggedAt: string }) => void;
   onAnimationUpdated?: (updated: { id: string; animationPreference: "auto" | RigAnimMode }) => void;
   onRemoveFromIsland?: () => void | Promise<void>;
-  /** Fired after successful evolve so the island can update the sprite */
-  onEvolved?: (updated: {
-    id: string;
-    imageUrl: string;
-    versionHistory: VersionStage[];
-    memories: Memory[];
-    personality: Personality | null;
-  }) => void;
+  onEvolved?: (updated: { id: string; imageUrl: string; versionHistory: VersionStage[]; memories: Memory[]; personality: Personality | null }) => void;
 }
 
 type Tab        = "info" | "memories" | "evolution";
 type EvolveStep = "idle" | "choose" | "draw" | "rig" | "saving";
-type ChatRole = "user" | "assistant";
-
-type ChatMessage = {
-  role: ChatRole;
-  text: string;
-};
+type ChatRole   = "user" | "assistant";
+type ChatMessage = { role: ChatRole; text: string };
 
 const ANIMATION_OPTIONS: Array<{ key: "auto" | RigAnimMode; label: string }> = [
-  { key: "auto", label: "Auto roam" },
-  { key: "idle", label: "Idle" },
-  { key: "walk", label: "Walk" },
-  { key: "hop", label: "Hop" },
-  { key: "wave", label: "Wave" },
-  { key: "run", label: "Run" },
+  { key: "auto",  label: "Auto roam" },
+  { key: "idle",  label: "Idle" },
+  { key: "walk",  label: "Walk" },
+  { key: "hop",   label: "Hop" },
+  { key: "wave",  label: "Wave" },
+  { key: "run",   label: "Run" },
   { key: "dance", label: "Dance" },
   { key: "sleep", label: "Sleep" },
 ];
@@ -81,14 +66,14 @@ export function CharacterDetail({
   id,
   name,
   age,
-  imageUrl:        initialImageUrl,
+  imageUrl:       initialImageUrl,
   rigPath,
   joints,
   riggedAt,
   animationPreference = "auto",
-  memories:        initialMemories    = [],
-  personality:     initialPersonality,
-  versionHistory:  initialHistory     = [],
+  memories:       initialMemories   = [],
+  personality:    initialPersonality,
+  versionHistory: initialHistory    = [],
   onClose,
   onRigGenerated,
   onJointsUpdated,
@@ -102,37 +87,32 @@ export function CharacterDetail({
   const [evolveError, setEvolveError] = useState<string | null>(null);
   const [memoryNote, setMemoryNote]   = useState("");
 
-  // Live local copies – updated immediately on success so the modal reflects
-  // the change without needing a full reload / close-reopen.
-  const [liveImageUrl,      setLiveImageUrl]      = useState(initialImageUrl);
-  const [liveHistory,       setLiveHistory]       = useState<VersionStage[]>(initialHistory);
-  const [liveMemories,      setLiveMemories]      = useState<Memory[]>(initialMemories);
-  const [livePersonality,   setLivePersonality]   = useState<Personality | null>(initialPersonality ?? null);
-  const [chatInput, setChatInput]                 = useState("");
-  const [chatBusy, setChatBusy]                   = useState(false);
-  const [liveRigPath, setLiveRigPath]             = useState<string | null>(rigPath ?? null);
-  const [liveJoints, setLiveJoints]               = useState(joints ?? null);
-  const [liveRiggedAt, setLiveRiggedAt]           = useState<string | Date | null>(riggedAt ?? null);
+  const [liveImageUrl,            setLiveImageUrl]            = useState(initialImageUrl);
+  const [liveHistory,             setLiveHistory]             = useState<VersionStage[]>(initialHistory);
+  const [liveMemories,            setLiveMemories]            = useState<Memory[]>(initialMemories);
+  const [livePersonality,         setLivePersonality]         = useState<Personality | null>(initialPersonality ?? null);
+  const [chatInput,               setChatInput]               = useState("");
+  const [chatBusy,                setChatBusy]                = useState(false);
+  const [liveRigPath,             setLiveRigPath]             = useState<string | null>(rigPath ?? null);
+  const [liveJoints,              setLiveJoints]              = useState(joints ?? null);
+  const [liveRiggedAt,            setLiveRiggedAt]            = useState<string | Date | null>(riggedAt ?? null);
   const [liveAnimationPreference, setLiveAnimationPreference] = useState<"auto" | RigAnimMode>(animationPreference);
-  const [animationBusy, setAnimationBusy] = useState(false);
-  const [rigBusy, setRigBusy]                     = useState(false);
-  const [manualRigBusy, setManualRigBusy]         = useState(false);
-  const [manualRigOpen, setManualRigOpen]         = useState(false);
-  const [removingFromIsland, setRemovingFromIsland] = useState(false);
-  const [rigMessage, setRigMessage]               = useState<string | null>(null);
+  const [animationBusy,           setAnimationBusy]           = useState(false);
+  const [rigBusy,                 setRigBusy]                 = useState(false);
+  const [manualRigBusy,           setManualRigBusy]           = useState(false);
+  const [manualRigOpen,           setManualRigOpen]           = useState(false);
+  const [removingFromIsland,      setRemovingFromIsland]      = useState(false);
+  const [rigMessage,              setRigMessage]              = useState<string | null>(null);
 
   const favoriteForQuote = useMemo(() => {
     if (livePersonality?.favoriteThing?.trim()) return livePersonality.favoriteThing.trim();
-    if (livePersonality?.traits?.length) return livePersonality.traits[0];
-    if (liveMemories.length > 0) return liveMemories[liveMemories.length - 1].text;
+    if (livePersonality?.traits?.length)        return livePersonality.traits[0];
+    if (liveMemories.length > 0)                return liveMemories[liveMemories.length - 1].text;
     return "new adventures";
   }, [livePersonality, liveMemories]);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      text: `Hi! I am ${name}. And I like ${favoriteForQuote}. How are you?!`,
-    },
+    { role: "assistant", text: `Hi! I am ${name}. And I like ${favoriteForQuote}. How are you?!` },
   ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -150,77 +130,42 @@ export function CharacterDetail({
     });
 
   const cancelEvolve = () => {
-    setEvolveStep("idle");
-    setNewImageUrl(null);
-    setEvolveError(null);
-    setMemoryNote("");
+    setEvolveStep("idle"); setNewImageUrl(null); setEvolveError(null); setMemoryNote("");
   };
 
   const sendChat = async () => {
     const text = chatInput.trim();
     if (!text || chatBusy) return;
-
     const nextMessages: ChatMessage[] = [...chatMessages, { role: "user", text }];
     setChatMessages(nextMessages);
     setChatInput("");
     setChatBusy(true);
-
     try {
       const res = await fetch("/api/character-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          character: {
-            id,
-            name,
-            age,
-            memories: liveMemories,
-            personality: livePersonality,
-            versionHistory: liveHistory,
-          },
-          messages: nextMessages,
-        }),
+        body: JSON.stringify({ character: { id, name, age, memories: liveMemories, personality: livePersonality, versionHistory: liveHistory }, messages: nextMessages }),
       });
-
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || "Could not chat with character.");
-      }
-
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error || "Could not chat."); }
       const payload = await res.json();
       const reply = String(payload?.reply || "").trim();
-      if (!reply) throw new Error("Character had no response.");
-
+      if (!reply) throw new Error("No response.");
       setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
-
       const memoryCandidate = String(payload?.memoryCandidate || "").trim();
       if (memoryCandidate.length > 0) {
         const memoryRes = await fetch("/api/characters", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "add",
-            characterId: id,
-            memory: {
-              id: crypto.randomUUID(),
-              text: memoryCandidate,
-            },
-          }),
+          body: JSON.stringify({ action: "add", characterId: id, memory: { id: crypto.randomUUID(), text: memoryCandidate } }),
         });
-
         if (memoryRes.ok) {
           const updated = await memoryRes.json();
-          if (Array.isArray(updated?.memories)) {
-            setLiveMemories(updated.memories as Memory[]);
-          }
+          if (Array.isArray(updated?.memories)) setLiveMemories(updated.memories as Memory[]);
         }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Chat failed.";
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: `Sorry, I got shy for a moment: ${message}` },
-      ]);
+      setChatMessages((prev) => [...prev, { role: "assistant", text: `Sorry, I got shy for a moment: ${message}` }]);
     } finally {
       setChatBusy(false);
     }
@@ -228,156 +173,82 @@ export function CharacterDetail({
 
   const generateRig = async () => {
     if (rigBusy) return;
-    setRigBusy(true);
-    setRigMessage(null);
+    setRigBusy(true); setRigMessage(null);
     try {
-      const res = await fetch("/api/rig/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId: id }),
-      });
+      const res = await fetch("/api/rig/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ characterId: id }) });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Rig generation failed");
-      }
-
+      if (!res.ok) throw new Error(payload?.error || "Rig generation failed");
       const generatedPath = String(payload?.rigPath || "").trim();
       const riggedAtValue = String(payload?.riggedAt || new Date().toISOString());
-      if (!generatedPath) throw new Error("Rig generated but no rigPath returned");
-
+      if (!generatedPath) throw new Error("No rigPath returned");
       const refreshedPath = `${generatedPath}?v=${Date.now()}`;
-      setLiveRigPath(refreshedPath);
-      setLiveRiggedAt(riggedAtValue);
-      setRigMessage("Rig generated successfully. Animation updated.");
+      setLiveRigPath(refreshedPath); setLiveRiggedAt(riggedAtValue);
+      setRigMessage("Rig generated successfully.");
       onRigGenerated?.({ id, rigPath: refreshedPath, riggedAt: riggedAtValue });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Rig generation failed.";
-      setRigMessage(message);
-    } finally {
-      setRigBusy(false);
-    }
+      setRigMessage(err instanceof Error ? err.message : "Rig generation failed.");
+    } finally { setRigBusy(false); }
   };
 
   const updateAnimationPreference = async (next: "auto" | RigAnimMode) => {
     if (animationBusy || next === liveAnimationPreference) return;
-    setAnimationBusy(true);
-    setRigMessage(null);
+    setAnimationBusy(true); setRigMessage(null);
     try {
       const res = await fetch("/api/characters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "set-animation",
-          characterId: id,
-          animationPreference: next,
-        }),
+        body: JSON.stringify({ action: "set-animation", characterId: id, animationPreference: next }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Could not update animation");
-      }
-      const confirmed = (String(payload?.animationPreference || next) as "auto" | RigAnimMode);
+      if (!res.ok) throw new Error(payload?.error || "Could not update animation");
+      const confirmed = String(payload?.animationPreference || next) as "auto" | RigAnimMode;
       setLiveAnimationPreference(confirmed);
-      setRigMessage("Animation preference updated.");
       onAnimationUpdated?.({ id, animationPreference: confirmed });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not update animation.";
-      setRigMessage(message);
-    } finally {
-      setAnimationBusy(false);
-    }
+      setRigMessage(err instanceof Error ? err.message : "Could not update animation.");
+    } finally { setAnimationBusy(false); }
   };
 
   const removeFromIsland = async () => {
     if (!onRemoveFromIsland || removingFromIsland) return;
     setRemovingFromIsland(true);
-    try {
-      await onRemoveFromIsland();
-    } finally {
-      setRemovingFromIsland(false);
-    }
+    try { await onRemoveFromIsland(); } finally { setRemovingFromIsland(false); }
   };
 
-  const handleManualRigConfirm = async (
-    nextJoints: Record<string, { x: number; y: number }>,
-  ) => {
+  const handleManualRigConfirm = async (nextJoints: Record<string, { x: number; y: number }>) => {
     if (manualRigBusy) return;
-    setManualRigBusy(true);
-    setRigMessage(null);
+    setManualRigBusy(true); setRigMessage(null);
     try {
-      const res = await fetch("/api/rig", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageId: id, joints: nextJoints }),
-      });
+      const res = await fetch("/api/rig", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageId: id, joints: nextJoints }) });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to save rig points");
-      }
-
+      if (!res.ok) throw new Error(payload?.error || "Failed to save rig points");
       const riggedAtValue = new Date().toISOString();
-      setLiveJoints(nextJoints);
-      setLiveRiggedAt(riggedAtValue);
-      setManualRigOpen(false);
-      setRigMessage("Rig points updated successfully.");
+      setLiveJoints(nextJoints); setLiveRiggedAt(riggedAtValue);
+      setManualRigOpen(false); setRigMessage("Rig points updated.");
       onJointsUpdated?.({ id, joints: nextJoints, riggedAt: riggedAtValue });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save rig points.";
-      setRigMessage(message);
-    } finally {
-      setManualRigBusy(false);
-    }
+      setRigMessage(err instanceof Error ? err.message : "Failed to save rig points.");
+    } finally { setManualRigBusy(false); }
   };
-
-  // ── Rig → PATCH evolve ───────────────────────────────────────────────────
 
   const handleRigConfirm = async (joints: Record<string, { x: number; y: number }>) => {
     if (!newImageUrl) return;
-    setEvolveStep("saving");
-    setEvolveError(null);
-
+    setEvolveStep("saving"); setEvolveError(null);
     try {
       const res = await fetch("/api/characters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action:      "evolve",
-          characterId: id,
-          imageUrl:    newImageUrl,
-          joints,
-          memoryText:  memoryNote.trim() || undefined,
-        }),
+        body: JSON.stringify({ action: "evolve", characterId: id, imageUrl: newImageUrl, joints, memoryText: memoryNote.trim() || undefined }),
       });
-
-      if (!res.ok) {
-        const p = await res.json().catch(() => null);
-        throw new Error(p?.error ?? "Evolve failed");
-      }
-
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error ?? "Evolve failed"); }
       const updated = await res.json();
-
-      // Update live state so everything reflects the new stage immediately
-      setLiveImageUrl(updated.imageUrl);
-      setLiveHistory(updated.versionHistory ?? []);
-      setLiveMemories(updated.memories ?? []);
-      setLivePersonality(updated.personality ?? null);
-
-      // Tell the island page to swap the sprite
-      onEvolved?.({
-        id:             updated.id,
-        imageUrl:       updated.imageUrl,
-        versionHistory: updated.versionHistory ?? [],
-        memories:       updated.memories ?? [],
-        personality:    updated.personality ?? null,
-      });
-
-      setEvolveStep("idle");
-      setNewImageUrl(null);
-      setMemoryNote("");
-      setTab("evolution");          // land on timeline so they can see all stages
+      setLiveImageUrl(updated.imageUrl); setLiveHistory(updated.versionHistory ?? []);
+      setLiveMemories(updated.memories ?? []); setLivePersonality(updated.personality ?? null);
+      onEvolved?.({ id: updated.id, imageUrl: updated.imageUrl, versionHistory: updated.versionHistory ?? [], memories: updated.memories ?? [], personality: updated.personality ?? null });
+      setEvolveStep("idle"); setNewImageUrl(null); setMemoryNote(""); setTab("evolution");
     } catch (err) {
       setEvolveError(err instanceof Error ? err.message : "Evolve failed");
-      setEvolveStep("rig");         // stay on rig so they can retry
+      setEvolveStep("rig");
     }
   };
 
@@ -385,209 +256,156 @@ export function CharacterDetail({
 
   return (
     <>
-      {/*
-        DrawingCanvas is rendered OUTSIDE the constrained modal div as a
-        true full-screen portal so the canvas, toolbar, and pointer events
-        aren't clipped by overflow:hidden or maxHeight.
-      */}
       {evolveStep === "draw" && (
         <div className="fixed inset-0 z-60">
           <DrawingCanvas
-            onSave={(dataUrl) => {
-              setNewImageUrl(dataUrl);
-              setEvolveStep("rig");
-            }}
+            onSave={(dataUrl) => { setNewImageUrl(dataUrl); setEvolveStep("rig"); }}
             onClose={() => setEvolveStep("choose")}
             tutorialHint={`Draw ${name}'s evolved form ✨`}
           />
         </div>
       )}
 
-      {/* Hidden file input – always mounted so ref is stable */}
       <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
+        ref={fileInputRef} type="file" accept="image/*" className="hidden"
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
           setNewImageUrl(await readFile(file));
           setEvolveStep("rig");
-          // reset so same file can be re-picked
           e.target.value = "";
         }}
       />
 
-      {/* Main modal backdrop + card */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/45 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+        className="fixed inset-0 z-50 bg-black/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
         onClick={evolveStep === "idle" && !manualRigOpen ? onClose : undefined}
       >
         <motion.div
-          initial={{ scale: 0.96, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.96, opacity: 0 }}
-          transition={{ duration: 0.18 }}
-          className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full overflow-hidden flex flex-col"
+          initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 6, opacity: 0 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="bg-white rounded-2xl border border-stone-200 w-full overflow-hidden flex flex-col"
           style={{
             maxWidth:  evolveStep === "rig" ? 760 : 620,
-            height: "min(92vh, 48rem)",
+            height:    "min(92vh, 48rem)",
             maxHeight: "92vh",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <AnimatePresence mode="wait">
 
-            {/* ── Choose: draw or upload ─────────────────────────────────── */}
+            {/* ── Choose: draw or upload ──────────────────────────────────── */}
             {evolveStep === "choose" && (
-              <motion.div key="choose"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ModalHeader
-                  title={`Evolve ${name}`}
-                  sub="Choose how to create the next stage drawing"
-                  onBack={cancelEvolve}
-                />
-                <div className="p-6 space-y-5">
-
-                  {/* Current stage preview */}
+              <motion.div key="choose" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
+                <ModalHeader title={`Evolve ${name}`} sub="Choose how to create the next stage" onBack={cancelEvolve} />
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
                   <div className="flex justify-center">
-                    <div className="text-center space-y-1">
-                      <p className="text-[11px] font-semibold text-stone-400 uppercase tracking-widest">
+                    <div className="text-center">
+                      <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-2">
                         Current — Stage {stageCount || 1}
                       </p>
-                      <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 mx-auto">
+                      <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 mx-auto">
                         <Image src={liveImageUrl} alt="current" fill className="object-contain p-2" />
                       </div>
-                      <p className="text-[10px] text-stone-400">
-                        This will be saved as a memory of stage {stageCount || 1}
-                      </p>
                     </div>
                   </div>
 
-                  {/* Draw / Upload cards */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={() => setEvolveStep("draw")}
-                      className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 hover:bg-amber-100 transition-colors p-6">
-                      <span className="text-4xl">✏️</span>
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-amber-800">Draw it</p>
-                        <p className="text-xs text-amber-600 mt-0.5">Open the drawing canvas</p>
-                      </div>
+                      className="flex flex-col items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors py-6">
+                      <span className="text-2xl">✏️</span>
+                      <p className="text-sm font-medium text-stone-700">Draw it</p>
+                      <p className="text-xs text-stone-400">Open the canvas</p>
                     </button>
-
                     <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 hover:bg-stone-100 transition-colors p-6">
-                      <span className="text-4xl">📁</span>
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-stone-700">Upload a file</p>
-                        <p className="text-xs text-stone-400 mt-0.5">PNG, JPG, GIF</p>
-                      </div>
+                      className="flex flex-col items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors py-6">
+                      <span className="text-2xl">📁</span>
+                      <p className="text-sm font-medium text-stone-700">Upload a file</p>
+                      <p className="text-xs text-stone-400">PNG, JPG, GIF</p>
                     </button>
                   </div>
 
-                  {/* Memory note */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">
-                      What changed in this stage?{" "}
-                      <span className="font-normal normal-case text-stone-300">(optional)</span>
+                    <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">
+                      What changed? <span className="font-normal normal-case">(optional)</span>
                     </label>
                     <input
                       value={memoryNote}
                       onChange={(e) => setMemoryNote(e.target.value)}
                       placeholder={`e.g. ${name} learned to fly today`}
-                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
                     />
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* ── Rig joints ───────────────────────────────────────────────── */}
+            {/* ── Rig joints ─────────────────────────────────────────────── */}
             {(evolveStep === "rig" || evolveStep === "saving") && newImageUrl && (
-              <motion.div key="rig"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="rig" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
                 <ModalHeader
                   title="Place joints"
                   sub={`Mark ${name}'s joints for stage ${(stageCount || 1) + 1}`}
                   onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }}
                 />
                 {evolveError && (
-                  <p className="mx-5 mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-                    {evolveError}
-                  </p>
+                  <p className="mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{evolveError}</p>
                 )}
-                <div className="p-4">
+                <div className="flex-1 overflow-hidden p-4">
                   {evolveStep === "saving" ? (
-                    <div className="flex items-center justify-center h-56 gap-3">
-                      <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm text-stone-500">Saving evolution…</p>
+                    <div className="flex items-center justify-center h-full gap-2">
+                      <Spinner />
+                      <p className="text-sm text-stone-400">Saving evolution…</p>
                     </div>
                   ) : (
-                    <JointEditor
-                      imageUrl={newImageUrl}
-                      onConfirm={handleRigConfirm}
-                      onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }}
-                    />
+                    <JointEditor imageUrl={newImageUrl} onConfirm={handleRigConfirm} onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }} />
                   )}
                 </div>
               </motion.div>
             )}
 
-            {/* ── Manual rig points ──────────────────────────────────────────── */}
+            {/* ── Manual rig ─────────────────────────────────────────────── */}
             {evolveStep === "idle" && manualRigOpen && (
-              <motion.div key="manual-rig"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ModalHeader
-                  title="Rig again manually"
-                  sub={`Place joints again for ${name}`}
-                  onBack={() => setManualRigOpen(false)}
-                />
-                {rigMessage && (
-                  <p className="mx-5 mt-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm text-stone-600">
-                    {rigMessage}
-                  </p>
-                )}
-                <div className="p-4">
+              <motion.div key="manual-rig" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
+                <ModalHeader title="Rig again manually" sub={`Place joints for ${name}`} onBack={() => setManualRigOpen(false)} />
+                {rigMessage && <p className="mx-5 mt-3 text-xs text-stone-500">{rigMessage}</p>}
+                <div className="flex-1 overflow-hidden p-4">
                   {manualRigBusy ? (
-                    <div className="flex items-center justify-center h-56 gap-3">
-                      <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm text-stone-500">Saving rig points...</p>
-                    </div>
+                    <div className="flex items-center justify-center h-full gap-2"><Spinner /><p className="text-sm text-stone-400">Saving…</p></div>
                   ) : (
-                    <JointEditor
-                      imageUrl={liveImageUrl}
-                      onConfirm={handleManualRigConfirm}
-                      onBack={() => setManualRigOpen(false)}
-                    />
+                    <JointEditor imageUrl={liveImageUrl} onConfirm={handleManualRigConfirm} onBack={() => setManualRigOpen(false)} />
                   )}
                 </div>
               </motion.div>
             )}
 
-            {/* ── Normal view (idle) ────────────────────────────────────────── */}
+            {/* ── Normal view ────────────────────────────────────────────── */}
             {evolveStep === "idle" && !manualRigOpen && (
-              <motion.div key="normal"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+              <motion.div key="normal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
 
-                {/* Tab bar + action buttons */}
+                {/* Tab bar */}
                 <div className="flex items-center border-b border-stone-200 px-1 pt-1 shrink-0">
-                  <TabBtn active={tab === "info"}      onClick={() => setTab("info")}>Info</TabBtn>
-                  <TabBtn active={tab === "memories"}  onClick={() => setTab("memories")}>
+                  <TabBtn active={tab === "info"} onClick={() => setTab("info")}>Info</TabBtn>
+                  <TabBtn active={tab === "memories"} onClick={() => setTab("memories")}>
                     Memories {liveMemories.length > 0 && <Pill n={liveMemories.length} />}
                   </TabBtn>
                   <TabBtn active={tab === "evolution"} onClick={() => setTab("evolution")}>
                     Evolution {stageCount > 0 && <Pill n={stageCount} amber />}
                   </TabBtn>
                   <div className="flex-1" />
-                  <button type="button" onClick={() => setEvolveStep("choose")}
-                    className="mr-2 flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setEvolveStep("choose")}
+                    className="mr-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors"
+                  >
                     ✨ Evolve
                   </button>
-                  <button type="button" onClick={onClose}
-                    className="mr-3 text-stone-400 hover:text-stone-700 text-xl leading-none transition">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mr-3 text-stone-400 hover:text-stone-600 text-xl leading-none transition"
+                  >
                     ×
                   </button>
                 </div>
@@ -595,10 +413,12 @@ export function CharacterDetail({
                 {/* Tab content */}
                 <div className="flex-1 min-h-0 overflow-hidden">
 
-                  {/* ── Info ────────────────────────────────────────────────── */}
+                  {/* ── Info ──────────────────────────────────────────────── */}
                   {tab === "info" && (
-                    <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-5 space-y-5">
-                      <div className="flex gap-5">
+                    <div className="h-full overflow-y-auto overscroll-contain p-5 space-y-5">
+
+                      {/* Sprite + meta + actions */}
+                      <div className="flex gap-4">
                         <div className="relative w-28 h-28 shrink-0 rounded-2xl overflow-hidden border border-stone-200 bg-stone-50">
                           <AnimatedRigSprite
                             imageUrl={liveImageUrl}
@@ -616,86 +436,85 @@ export function CharacterDetail({
                             </span>
                           )}
                         </div>
-                        <div className="flex-1 space-y-2">
-                          <h2 className="font-serif text-xl font-bold text-stone-900">{name}</h2>
-                          <p className="text-sm text-stone-500">Age {age}</p>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            <button type="button" onClick={() => setEvolveStep("choose")}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors">
+
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <h2 className="font-serif text-xl font-bold text-stone-900">{name}</h2>
+                            <p className="text-sm text-stone-400">Age {age}</p>
+                          </div>
+
+                          {/* Animation dropdown */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">
+                              Animation
+                            </p>
+                            <select
+                              value={liveAnimationPreference}
+                              disabled={animationBusy}
+                              onChange={(e) => void updateAnimationPreference(e.target.value as "auto" | RigAnimMode)}
+                              className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 focus:outline-none focus:border-stone-400 disabled:opacity-50"
+                            >
+                              {ANIMATION_OPTIONS.map((opt) => (
+                                <option key={opt.key} value={opt.key}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {rigMessage && <p className="text-xs text-stone-400">{rigMessage}</p>}
+
+                          {/* Action buttons */}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEvolveStep("choose")}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors"
+                            >
                               ✨ Evolve character
                             </button>
+
                             {onRemoveFromIsland && (
                               <button
                                 type="button"
                                 onClick={() => void removeFromIsland()}
                                 disabled={removingFromIsland}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-red-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition-colors"
                               >
-                                {removingFromIsland ? "Removing..." : "Remove from island"}
+                                {removingFromIsland ? "Removing…" : "Remove from island"}
                               </button>
                             )}
+
                             <button
                               type="button"
                               onClick={() => void generateRig()}
                               disabled={rigBusy}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white hover:bg-stone-50 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-stone-600 transition-colors"
                             >
-                              {rigBusy
-                                ? "Generating..."
-                                : liveRigPath
-                                  ? "Generate mesh rig again"
-                                  : "Generate mesh rig"}
+                              {rigBusy ? "Generating…" : liveRigPath ? "Regenerate rig" : "Generate rig"}
                             </button>
+
                             <button
                               type="button"
                               onClick={() => setManualRigOpen(true)}
                               disabled={manualRigBusy}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 hover:bg-blue-100 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-blue-700 transition-colors"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-blue-600 transition-colors"
                             >
-                              {manualRigBusy
-                                ? "Saving..."
-                                : liveJoints
-                                  ? "Rig again (manual points)"
-                                  : "Set rig points manually"}
+                              {manualRigBusy ? "Saving…" : liveJoints ? "Re-rig manually" : "Set rig manually"}
                             </button>
+
                             {stageCount > 1 && (
-                              <button type="button" onClick={() => setTab("evolution")}
-                                className="text-xs text-amber-600 hover:text-amber-800 font-medium transition self-center">
+                              <button
+                                type="button"
+                                onClick={() => setTab("evolution")}
+                                className="text-xs text-amber-600 hover:text-amber-800 font-medium transition self-center"
+                              >
                                 View {stageCount} stages →
                               </button>
                             )}
                           </div>
-                          <div>
-                            <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mb-1.5">
-                              Animation
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {ANIMATION_OPTIONS.map((opt) => {
-                                const active = liveAnimationPreference === opt.key;
-                                return (
-                                  <button
-                                    key={opt.key}
-                                    type="button"
-                                    onClick={() => void updateAnimationPreference(opt.key)}
-                                    disabled={animationBusy}
-                                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
-                                      active
-                                        ? "border-amber-400 bg-amber-50 text-amber-800"
-                                        : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                                    }`}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {rigMessage && (
-                            <p className="text-xs text-stone-500">{rigMessage}</p>
-                          )}
                         </div>
                       </div>
 
+                      {/* Personality */}
                       {livePersonality && (
                         <div className="rounded-xl border border-stone-200 divide-y divide-stone-100">
                           {livePersonality.catchphrase && (
@@ -708,7 +527,7 @@ export function CharacterDetail({
                               <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mb-2">Traits</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {livePersonality.traits.map((t) => (
-                                  <span key={t} className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs text-stone-700">{t}</span>
+                                  <span key={t} className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs text-stone-600">{t}</span>
                                 ))}
                               </div>
                             </div>
@@ -722,26 +541,25 @@ export function CharacterDetail({
                         </div>
                       )}
 
+                      {/* Quote banner */}
                       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                         <p className="text-sm text-stone-700">
                           <span className="font-semibold text-amber-800">Hi! I am {name}. </span>
-                          And I like <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
+                          And I like{" "}
+                          <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-stone-200 bg-white">
+                      {/* Chat */}
+                      <div className="rounded-xl border border-stone-200 overflow-hidden">
                         <div className="border-b border-stone-100 px-4 py-2.5">
-                          <p className="text-[11px] text-stone-500 uppercase tracking-widest font-semibold">
+                          <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold">
                             Chat with {name}
                           </p>
                         </div>
-
-                        <div className="max-h-56 overflow-y-auto px-3 py-3 space-y-2 bg-stone-50">
+                        <div className="max-h-52 overflow-y-auto px-3 py-3 space-y-2 bg-stone-50">
                           {chatMessages.map((m, i) => (
-                            <div
-                              key={`${m.role}-${i}`}
-                              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                            >
+                            <div key={`${m.role}-${i}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                               <div
                                 className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
                                   m.role === "user"
@@ -754,19 +572,13 @@ export function CharacterDetail({
                             </div>
                           ))}
                         </div>
-
                         <div className="p-3 border-t border-stone-100 flex gap-2">
                           <input
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                void sendChat();
-                              }
-                            }}
-                            placeholder={`Ask ${name} about memories...`}
-                            className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void sendChat(); } }}
+                            placeholder={`Ask ${name} about memories…`}
+                            className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-300"
                           />
                           <button
                             type="button"
@@ -774,7 +586,7 @@ export function CharacterDetail({
                             disabled={chatBusy || !chatInput.trim()}
                             className="rounded-xl bg-amber-400 hover:bg-amber-300 disabled:bg-stone-200 disabled:text-stone-400 px-3 py-2 text-sm font-semibold text-stone-900 transition-colors"
                           >
-                            {chatBusy ? "..." : "Send"}
+                            {chatBusy ? "…" : "Send"}
                           </button>
                         </div>
                       </div>
@@ -783,27 +595,24 @@ export function CharacterDetail({
 
                   {/* ── Memories ──────────────────────────────────────────── */}
                   {tab === "memories" && (
-                    <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-5">
+                    <div className="h-full overflow-y-auto overscroll-contain p-5">
                       {liveMemories.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
+                        <div className="flex flex-col items-center justify-center h-40 gap-2">
                           <p className="text-stone-400 text-sm">No memories yet.</p>
-                          <p className="text-stone-300 text-xs">
+                          <p className="text-stone-300 text-xs text-center">
                             Memories are added from the Storyboard or when you evolve a character.
                           </p>
                         </div>
                       ) : (
-                        <ul className="space-y-2">
+                        <ul className="space-y-1">
                           {liveMemories.map((m) => (
-                            <li key={m.id}
-                              className="flex items-start gap-2.5 rounded-xl bg-stone-50 border border-stone-100 px-3.5 py-2.5">
-                              <span className="mt-0.5 text-amber-400">·</span>
+                            <li key={m.id} className="flex items-start gap-2.5 rounded-xl border border-stone-100 bg-stone-50 px-3.5 py-2.5">
+                              <span className="mt-0.5 text-amber-400 text-sm">·</span>
                               <div>
                                 <p className="text-sm text-stone-700">{m.text}</p>
                                 {m.createdAt && (
                                   <p className="text-[11px] text-stone-400 mt-0.5">
-                                    {new Date(m.createdAt).toLocaleDateString("en-US", {
-                                      month: "short", day: "numeric", year: "numeric",
-                                    })}
+                                    {new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                                   </p>
                                 )}
                               </div>
@@ -837,15 +646,14 @@ export function CharacterDetail({
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 
-function ModalHeader({ title, sub, onBack }: { title: string; sub: string; onBack: () => void }) {
+function ModalHeader({ title, sub, onBack }: { title: string; sub?: string; onBack: () => void }) {
   return (
-    <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 shrink-0">
       <div>
         <h2 className="font-serif text-lg font-bold text-stone-900">{title}</h2>
-        <p className="text-xs text-stone-400 mt-0.5">{sub}</p>
+        {sub && <p className="text-xs text-stone-400 mt-0.5">{sub}</p>}
       </div>
-      <button type="button" onClick={onBack}
-        className="text-stone-400 hover:text-stone-700 transition text-sm font-medium">
+      <button type="button" onClick={onBack} className="text-sm font-medium text-stone-400 hover:text-stone-700 transition">
         ← Back
       </button>
     </div>
@@ -854,10 +662,15 @@ function ModalHeader({ title, sub, onBack }: { title: string; sub: string; onBac
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick}
+    <button
+      type="button"
+      onClick={onClick}
       className={`flex items-center gap-1 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-        active ? "border-amber-400 text-amber-800" : "border-transparent text-stone-500 hover:text-stone-700"
-      }`}>
+        active
+          ? "border-amber-400 text-stone-900"
+          : "border-transparent text-stone-400 hover:text-stone-600"
+      }`}
+    >
       {children}
     </button>
   );
@@ -877,5 +690,13 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
       <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold shrink-0 mt-0.5">{label}</p>
       <p className="text-sm text-stone-700 text-right">{children}</p>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <div
+      className="w-4 h-4 rounded-full border-2 border-stone-200 border-t-stone-500 animate-spin"
+    />
   );
 }

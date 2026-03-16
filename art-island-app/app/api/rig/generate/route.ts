@@ -38,12 +38,49 @@ function decodeDataUrl(url: string): Buffer | null {
   }
 }
 
+async function resolvePythonScript(appRoot: string): Promise<string> {
+  const envScript = process.env.RIG_PYTHON_SCRIPT?.trim();
+  const candidates = [
+    envScript
+      ? path.isAbsolute(envScript)
+        ? envScript
+        : path.resolve(appRoot, envScript)
+      : "",
+    path.resolve(appRoot, "image_mesh_animation/arap_animate.py"),
+    path.resolve(appRoot, "image_2/arap_animate.py"),
+    path.resolve(appRoot, "../image_mesh_animation/arap_animate.py"),
+    path.resolve(appRoot, "../image_2/arap_animate.py"),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Keep trying fallbacks.
+    }
+  }
+
+  throw new Error(
+    `Could not find rig script. Set RIG_PYTHON_SCRIPT or place arap_animate.py in one of: ${candidates.join(", ")}`
+  );
+}
+
 function runPython(scriptPath: string, args: string[]): Promise<void> {
+  const pythonBin = process.env.RIG_PYTHON_BIN?.trim() || "python3";
   return new Promise((resolve, reject) => {
-    execFile("python3", [scriptPath, ...args], { maxBuffer: 1024 * 1024 * 20 }, (error) => {
+    execFile(
+      pythonBin,
+      [scriptPath, ...args],
+      {
+        cwd: path.dirname(scriptPath),
+        maxBuffer: 1024 * 1024 * 20,
+      },
+      (error) => {
       if (error) reject(error);
       else resolve();
-    });
+      }
+    );
   });
 }
 
@@ -76,7 +113,7 @@ export async function POST(request: Request) {
     }
 
     const appRoot = process.cwd();
-    const pythonScript = path.resolve(appRoot, "../image_2/arap_animate.py");
+    const pythonScript = await resolvePythonScript(appRoot);
     const rigsRoot = path.resolve(appRoot, "public/rigs");
     const outDir = path.join(rigsRoot, characterId);
 
