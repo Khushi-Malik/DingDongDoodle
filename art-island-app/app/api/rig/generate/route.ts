@@ -7,6 +7,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,15 @@ function decodeDataUrl(url: string): Buffer | null {
   } catch {
     return null;
   }
+}
+
+function fileContentType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".json") return "application/json";
+  return "application/octet-stream";
 }
 
 async function resolvePythonScript(appRoot: string): Promise<string> {
@@ -114,27 +124,54 @@ export async function POST(request: Request) {
 
     const appRoot = process.cwd();
     const pythonScript = await resolvePythonScript(appRoot);
-    const rigsRoot = path.resolve(appRoot, "public/rigs");
-    const outDir = path.join(rigsRoot, characterId);
-
-    await fs.mkdir(rigsRoot, { recursive: true });
+    const rigApiPath = `/api/rig/${characterId}/rig.json`;
 
     const tmp = await fs.mkdtemp(path.join(tmpdir(), `rig-${characterId}-`));
     const inputPath = path.join(tmp, "input.png");
+    const outDir = path.join(tmp, "out");
+    await fs.mkdir(outDir, { recursive: true });
 
     try {
+      let imageBuffer: Buffer;
       const fromData = decodeDataUrl(imageUrl);
       if (fromData) {
-        await fs.writeFile(inputPath, fromData);
+        imageBuffer = fromData;
+        await fs.writeFile(inputPath, imageBuffer);
       } else if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
         const res = await fetch(imageUrl);
         if (!res.ok) {
           throw new Error("Failed to download character image");
         }
-        const buf = Buffer.from(await res.arrayBuffer());
-        await fs.writeFile(inputPath, buf);
+        imageBuffer = Buffer.from(await res.arrayBuffer());
+        await fs.writeFile(inputPath, imageBuffer);
       } else {
         throw new Error("Unsupported imageUrl format. Expected data URL or http(s) URL.");
+      }
+
+      const sourceHash = createHash("sha256").update(imageBuffer).digest("hex");
+
+      const existingAssets = (char as { rigAssets?: unknown }).rigAssets as
+        | {
+            rigJson?: unknown;
+            files?: Record<string, { contentType: string; dataBase64: string }>;
+            sourceHash?: string;
+          }
+        | undefined;
+      if (
+        existingAssets?.rigJson &&
+        existingAssets?.files &&
+        Object.keys(existingAssets.files).length > 0 &&
+        existingAssets.sourceHash === sourceHash
+      ) {
+        const existingRiggedAt =
+          (char as { riggedAt?: Date | null }).riggedAt?.toISOString() ??
+          new Date().toISOString();
+        return NextResponse.json({
+          ok: true,
+          rigPath: rigApiPath,
+          riggedAt: existingRiggedAt,
+          cached: true,
+        });
       }
 
       await runPython(
@@ -147,14 +184,59 @@ export async function POST(request: Request) {
       const rigJsonPath = path.join(outDir, "rig.json");
       await fs.access(rigJsonPath);
 
-      const rigPath = `/rigs/${characterId}/rig.json`;
+      const rigRaw = await fs.readFile(rigJsonPath, "utf8");
+      const rigJson = JSON.parse(rigRaw) as {
+        parts?: Record<string, { file?: string }>;
+      };
+
+      const fileKeys = Array.from(
+        new Set(
+          Object.values(rigJson.parts ?? {})
+            .map((part) => String(part?.file ?? "").trim().replace(/\\/g, "/"))
+            .filter(Boolean),
+        ),
+      );
+
+      const rigFiles: Record<string, { contentType: string; dataBase64: string }> = {};
+      for (const fileKey of fileKeys) {
+        const sanitized = fileKey.replace(/^\/+/, "");
+        if (sanitized.includes("..")) {
+          throw new Error(`Unsafe rig file path: ${fileKey}`);
+        }
+        const absPath = path.resolve(outDir, sanitized);
+        if (!absPath.startsWith(path.resolve(outDir))) {
+          throw new Error(`Rig file escapes output directory: ${fileKey}`);
+        }
+        const buf = await fs.readFile(absPath);
+        rigFiles[sanitized] = {
+          contentType: fileContentType(sanitized),
+          dataBase64: buf.toString("base64"),
+        };
+      }
+
       const riggedAt = new Date();
       await collection.updateOne(
         { _id: new mongoose.Types.ObjectId(characterId), userId },
-        { $set: { rigPath, riggedAt } }
+        {
+          $set: {
+            rigPath: rigApiPath,
+            riggedAt,
+            rigAssets: {
+              sourceHash,
+              rigJson,
+              files: rigFiles,
+              generatedAt: riggedAt,
+            },
+          },
+        }
       );
 
-      return NextResponse.json({ ok: true, rigPath, riggedAt: riggedAt.toISOString() });
+      return NextResponse.json({
+        ok: true,
+        rigPath: rigApiPath,
+        riggedAt: riggedAt.toISOString(),
+        cached: false,
+      });
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
