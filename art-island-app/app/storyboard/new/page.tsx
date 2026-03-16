@@ -374,7 +374,7 @@ export default function StoryboardPage() {
   const [customSettings, setCustomSettings] = useState<StorySettingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState<boolean | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
 
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>(
     [],
@@ -453,14 +453,12 @@ export default function StoryboardPage() {
   // Hydration-safe dark mode initialization
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
-    setDarkMode(saved ? JSON.parse(saved) : false);
+    setDarkMode(saved === "true");
   }, []);
 
   // Sync with localStorage when darkMode changes
   useEffect(() => {
-    if (darkMode !== null) {
-      localStorage.setItem("darkMode", JSON.stringify(darkMode));
-    }
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
   }, [darkMode]);
 
   const selectedCharacters = useMemo(

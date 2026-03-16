@@ -37,8 +37,7 @@ export default function StoryboardHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeStory, setActiveStory] = useState<StoryData | null>(null);
-  const [darkMode, setDarkMode] = useState<boolean | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   const bgColor = darkMode ? "#0f2336" : "#ffffff";
   const textMain = darkMode ? "#f0f6ff" : "#1a1a1a";
@@ -70,15 +69,12 @@ export default function StoryboardHomePage() {
   // Hydration-safe dark mode initialization
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
-    setDarkMode(saved ? JSON.parse(saved) : false);
-    setHydrated(true);
+    setDarkMode(saved === "true");
   }, []);
 
   // Sync with localStorage when darkMode changes
   useEffect(() => {
-    if (darkMode !== null) {
-      localStorage.setItem("darkMode", JSON.stringify(darkMode));
-    }
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
   }, [darkMode]);
 
   const storyCountLabel = useMemo(

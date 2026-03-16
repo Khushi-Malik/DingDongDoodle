@@ -18,8 +18,7 @@ export default function RigPage() {
   const [selected, setSelected] = useState<Character | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [darkMode, setDarkMode] = useState<boolean | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   const bgColor = darkMode ? "#0f2336" : "#ffffff";
   const textMain = darkMode ? "#f0f6ff" : "#1a1a1a";
@@ -45,15 +44,12 @@ export default function RigPage() {
   // Hydration-safe dark mode initialization
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
-    setDarkMode(saved ? JSON.parse(saved) : false);
-    setHydrated(true);
+    setDarkMode(saved === "true");
   }, []);
 
   // Sync with localStorage when darkMode changes
   useEffect(() => {
-    if (darkMode !== null) {
-      localStorage.setItem("darkMode", JSON.stringify(darkMode));
-    }
+    localStorage.setItem("darkMode", JSON.stringify(darkMode));
   }, [darkMode]);
 
   async function handleConfirm(
