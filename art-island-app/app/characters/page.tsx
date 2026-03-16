@@ -54,15 +54,13 @@ export default function AllCharactersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyCharacterId, setBusyCharacterId] = useState<string | null>(null);
-  const [restoreTargets, setRestoreTargets] = useState<Record<string, number>>(
-    {},
-  );
+  const [restoreTargets, setRestoreTargets] = useState<Record<string, number>>({});
   const [darkMode, setDarkMode] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  const activeIslandIds = useMemo(
-    () => new Set(islands.map((i) => i.id)),
-    [islands],
-  );
+  const activeIslandIds = useMemo(() => new Set(islands.map((i) => i.id)), [islands]);
 
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
@@ -78,24 +76,19 @@ export default function AllCharactersPage() {
       try {
         setLoading(true);
         setError(null);
-
         const [charactersRes, islandsRes] = await Promise.all([
           fetch("/api/characters"),
           fetch("/api/islands"),
         ]);
-
         if (charactersRes.status === 401 || islandsRes.status === 401) {
           router.push("/login");
           return;
         }
-
-        if (!charactersRes.ok || !islandsRes.ok) {
-          throw new Error("Failed to load characters");
-        }
-
-        const [charactersData, islandsData]: [CharacterData[], IslandData[]] =
-          await Promise.all([charactersRes.json(), islandsRes.json()]);
-
+        if (!charactersRes.ok || !islandsRes.ok) throw new Error("Failed to load characters");
+        const [charactersData, islandsData]: [CharacterData[], IslandData[]] = await Promise.all([
+          charactersRes.json(),
+          islandsRes.json(),
+        ]);
         setCharacters(charactersData);
         setIslands(islandsData);
       } catch {
@@ -104,7 +97,6 @@ export default function AllCharactersPage() {
         setLoading(false);
       }
     };
-
     void load();
   }, [router]);
 
@@ -114,23 +106,15 @@ export default function AllCharactersPage() {
   };
 
   const archiveCharacter = async (character: CharacterData) => {
-    if (!window.confirm(`Remove ${character.name} from island?`)) return;
-
     try {
       setBusyCharacterId(character.id);
       const res = await fetch("/api/characters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "archive-from-island",
-          characterId: character.id,
-        }),
+        body: JSON.stringify({ action: "archive-from-island", characterId: character.id }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to remove from island");
-      }
-
+      if (!res.ok) throw new Error(payload?.error || "Failed to remove from island");
       updateCharacter(character.id, { isArchived: true });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to remove from island.");
@@ -139,36 +123,17 @@ export default function AllCharactersPage() {
     }
   };
 
-  const restoreCharacter = async (character: CharacterData) => {
-    const fallbackIslandId = islands[0]?.id;
-    const requestedIslandId =
-      restoreTargets[character.id] ?? character.islandId ?? fallbackIslandId;
-
-    if (!requestedIslandId) {
-      alert("Create an island first, then restore this character.");
-      return;
-    }
-
+  const restoreCharacter = async (character: CharacterData, islandId: number) => {
     try {
       setBusyCharacterId(character.id);
       const res = await fetch("/api/characters", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "restore-to-island",
-          characterId: character.id,
-          islandId: requestedIslandId,
-        }),
+        body: JSON.stringify({ action: "restore-to-island", characterId: character.id, islandId }),
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to restore character");
-      }
-
-      updateCharacter(character.id, {
-        isArchived: false,
-        islandId: requestedIslandId,
-      });
+      if (!res.ok) throw new Error(payload?.error || "Failed to restore character");
+      updateCharacter(character.id, { isArchived: false, islandId });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to restore character.");
     } finally {
@@ -176,25 +141,50 @@ export default function AllCharactersPage() {
     }
   };
 
-  const bgColor = darkMode ? "#0f2336" : "#ffffff";
-  const textMain = darkMode ? "#f0f6ff" : "#1a1a1a";
+  const handleBulkRemove = async () => {
+    if (!window.confirm(`Remove ${selectedIds.size} character${selectedIds.size > 1 ? "s" : ""} from island?`)) return;
+    setBulkBusy(true);
+    for (const id of selectedIds) {
+      const char = characters.find((c) => c.id === id);
+      if (char && !char.isArchived) await archiveCharacter(char);
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setBulkBusy(false);
+  };
+
+  const toggleSelectMode = () => {
+    setSelectMode((p) => !p);
+    setSelectedIds(new Set());
+  };
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const anySelectedOnIsland = [...selectedIds].some(
+    (id) => !characters.find((c) => c.id === id)?.isArchived
+  );
+
+  const bg = darkMode ? "#0f2336" : "#ffffff";
+  const text = darkMode ? "#f0f6ff" : "#1a1a1a";
   const textMuted = darkMode ? "#7ea8c4" : "#888780";
-  const borderColor = darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
-  const hoverBg = darkMode ? "rgba(255,255,255,0.05)" : "#f3f4f6";
+  const border = darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
 
   if (loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: bgColor }}
-      >
-        <p style={{ color: textMuted }}>Loading characters...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bg }}>
+        <p style={{ color: textMuted, fontSize: 13 }}>Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
+    <div className="min-h-screen" style={{ backgroundColor: bg }}>
       <Navbar
         title={selected ? `Character: ${selected.name}` : "All Characters"}
         subtitle={
@@ -209,155 +199,181 @@ export default function AllCharactersPage() {
 
       <div className="pt-20 p-6 max-w-6xl mx-auto">
         {error && (
-          <div
-            className="rounded-xl border px-4 py-3 text-sm mb-4"
-            style={{
-              borderColor: darkMode ? "rgba(248,113,113,0.3)" : "#fecaca",
-              backgroundColor: darkMode ? "rgba(127,29,29,0.2)" : "#fee2e2",
-              color: darkMode ? "#fca5a5" : "#991b1b",
-            }}
-          >
-            {error}
-          </div>
+          <p className="text-sm mb-4" style={{ color: "#ef4444" }}>{error}</p>
         )}
 
-        <p className="text-sm mb-4" style={{ color: textMuted }}>
-          {characters.length} {characters.length === 1 ? "character" : "characters"}
-        </p>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-5">
+          <p style={{ color: textMuted, fontSize: 12 }}>
+            {characters.length} {characters.length === 1 ? "character" : "characters"}
+            {selectMode && selectedIds.size > 0 && (
+              <span style={{ color: text }}> · {selectedIds.size} selected</span>
+            )}
+          </p>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            {selectMode && selectedIds.size > 0 && anySelectedOnIsland && (
+              <button
+                onClick={() => void handleBulkRemove()}
+                disabled={bulkBusy}
+                style={{
+                  fontSize: 12,
+                  color: "#ef4444",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  opacity: bulkBusy ? 0.5 : 1,
+                }}
+              >
+                {bulkBusy ? "Removing…" : "Remove from island"}
+              </button>
+            )}
+            <button
+              onClick={toggleSelectMode}
+              style={{
+                fontSize: 12,
+                color: textMuted,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {selectMode ? "Cancel" : "Select"}
+            </button>
+          </div>
+        </div>
 
         {characters.length === 0 ? (
-          <div
-            className="rounded-2xl border border-dashed py-16 text-center"
-            style={{ borderColor }}
-          >
-            <p style={{ color: textMuted }}>No characters found yet.</p>
-          </div>
+          <p style={{ color: textMuted, fontSize: 13, textAlign: "center", paddingTop: 60 }}>
+            No characters yet.
+          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
             {characters.map((character) => {
               const onIsland = !character.isArchived;
-              const hasOriginalIsland = activeIslandIds.has(character.islandId);
-              const selectedRestoreIslandId =
-                restoreTargets[character.id] ??
-                (hasOriginalIsland ? character.islandId : islands[0]?.id);
+              const isChecked = selectedIds.has(character.id);
               const busy = busyCharacterId === character.id;
+              const restoreIslandId =
+                restoreTargets[character.id] ??
+                (activeIslandIds.has(character.islandId) ? character.islandId : islands[0]?.id);
 
               return (
-                <button
-                  type="button"
+                <div
                   key={character.id}
-                  onClick={() => setSelected(character)}
-                  className="group flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-left"
-                  style={{
-                    borderColor:
-                      selected?.id === character.id
-                        ? "rgba(96, 165, 250, 0.6)"
-                        : "transparent",
-                    opacity: onIsland ? 1 : 0.86,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selected?.id !== character.id) {
-                      e.currentTarget.style.borderColor = "rgba(96, 165, 250, 0.5)";
-                    }
-                    e.currentTarget.style.backgroundColor = darkMode
-                      ? "rgba(59, 130, 246, 0.1)"
-                      : "#eff6ff";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selected?.id !== character.id) {
-                      e.currentTarget.style.borderColor = "transparent";
-                    }
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
+                  onClick={() => (selectMode ? toggleId(character.id) : setSelected(character))}
+                  style={{ cursor: "pointer", position: "relative" }}
                 >
+                  {/* Image */}
                   <div
-                    className="w-full aspect-square rounded-lg overflow-hidden border"
                     style={{
-                      backgroundColor: hoverBg,
-                      borderColor,
+                      width: "100%",
+                      aspectRatio: "1",
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      border: `1px solid ${border}`,
+                      backgroundColor: bg,
+                      position: "relative",
                     }}
                   >
                     <img
                       src={character.imageUrl}
                       alt={character.name}
-                      className="w-full h-full object-contain"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                        opacity: isChecked ? 0.6 : 1,
+                      }}
                     />
-                  </div>
 
-                  <div className="w-full">
-                    <p className="text-sm font-medium truncate" style={{ color: textMain }}>
-                      {character.name}
-                    </p>
-                    <p className="text-xs" style={{ color: textMuted }}>
-                      Age {character.age}
-                    </p>
-                    <p
-                      className="text-[11px] mt-1 font-medium"
-                      style={{ color: onIsland ? "#22c55e" : "#f59e0b" }}
-                    >
-                      {onIsland ? "On island" : "Removed"}
-                    </p>
-                  </div>
-
-                  <div className="w-full mt-1" onClick={(e) => e.stopPropagation()}>
-                    {onIsland ? (
-                      <button
-                        type="button"
-                        onClick={() => void archiveCharacter(character)}
-                        disabled={busy}
-                        className="w-full rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                    {selectMode && (
+                      <div
                         style={{
-                          backgroundColor: "#ef4444",
-                          color: "#fff",
-                          opacity: busy ? 0.6 : 1,
+                          position: "absolute",
+                          top: 7,
+                          right: 7,
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          border: `1.5px solid ${isChecked ? text : textMuted}`,
+                          backgroundColor: isChecked ? text : "transparent",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                         }}
                       >
-                        {busy ? "Removing..." : "Remove"}
-                      </button>
-                    ) : (
-                      <div className="space-y-1.5">
+                        {isChecked && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                            <path d="M1.5 4l2 2 3-3.5" stroke={bg} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Text */}
+                  <div style={{ paddingTop: 6, paddingLeft: 1 }}>
+                    <p style={{ color: text, fontSize: 13, fontWeight: 500, margin: 0, lineHeight: 1.3 }}>
+                      {character.name}
+                    </p>
+                    <p style={{ color: textMuted, fontSize: 11, margin: "2px 0 0" }}>
+                      Age {character.age}
+                      {!onIsland && <span style={{ marginLeft: 5, color: "#f59e0b" }}>· removed</span>}
+                    </p>
+
+                    {/* Restore row for archived characters */}
+                    {!selectMode && !onIsland && islands.length > 0 && (
+                      <div
+                        style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <select
-                          value={selectedRestoreIslandId ?? ""}
-                          disabled={busy || islands.length === 0}
+                          value={restoreIslandId ?? ""}
+                          disabled={busy}
                           onChange={(e) =>
                             setRestoreTargets((prev) => ({
                               ...prev,
                               [character.id]: Number(e.target.value),
                             }))
                           }
-                          className="w-full rounded-lg border px-2 py-1.5 text-xs"
                           style={{
-                            borderColor,
-                            backgroundColor: darkMode ? "#0f2336" : "#fff",
-                            color: textMain,
+                            flex: 1,
+                            fontSize: 11,
+                            background: bg,
+                            color: text,
+                            border: `1px solid ${border}`,
+                            borderRadius: 5,
+                            padding: "3px 5px",
+                            outline: "none",
                           }}
                         >
-                          {islands.map((island) => (
-                            <option key={island.id} value={island.id}>
-                              {island.label || `Island ${island.id}`}
-                            </option>
+                          {islands.map((i) => (
+                            <option key={i.id} value={i.id}>{i.label || `Island ${i.id}`}</option>
                           ))}
                         </select>
                         <button
-                          type="button"
-                          onClick={() => void restoreCharacter(character)}
-                          disabled={busy || islands.length === 0 || !selectedRestoreIslandId}
-                          className="w-full rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                          disabled={busy || !restoreIslandId}
+                          onClick={() => restoreIslandId && void restoreCharacter(character, restoreIslandId)}
                           style={{
-                            backgroundColor: darkMode ? "#1e3a52" : "#111827",
-                            color: "#fff",
-                            opacity:
-                              busy || islands.length === 0 || !selectedRestoreIslandId
-                                ? 0.6
-                                : 1,
+                            fontSize: 11,
+                            color: textMuted,
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 0,
+                            opacity: busy || !restoreIslandId ? 0.4 : 1,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {busy ? "Restoring..." : "Bring back"}
+                          {busy ? "…" : "Restore"}
                         </button>
                       </div>
                     )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -380,22 +396,13 @@ export default function AllCharactersPage() {
           versionHistory={selected.versionHistory ?? []}
           onClose={() => setSelected(null)}
           onRigGenerated={(updated) => {
-            updateCharacter(updated.id, {
-              rigPath: updated.rigPath,
-              riggedAt: updated.riggedAt,
-            });
+            updateCharacter(updated.id, { rigPath: updated.rigPath, riggedAt: updated.riggedAt });
           }}
           onAnimationUpdated={(updated) => {
-            updateCharacter(updated.id, {
-              animationPreference: updated.animationPreference,
-            });
+            updateCharacter(updated.id, { animationPreference: updated.animationPreference });
           }}
           onRemoveFromIsland={
-            selected.isArchived
-              ? undefined
-              : async () => {
-                  await archiveCharacter(selected);
-                }
+            selected.isArchived ? undefined : async () => { await archiveCharacter(selected); }
           }
           onEvolved={(updated) => {
             updateCharacter(updated.id, {
