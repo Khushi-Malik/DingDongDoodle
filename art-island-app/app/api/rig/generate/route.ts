@@ -5,8 +5,6 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { tmpdir } from "node:os";
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 
 export const runtime = "nodejs";
@@ -48,50 +46,54 @@ function fileContentType(filePath: string) {
   return "application/octet-stream";
 }
 
-async function resolvePythonScript(appRoot: string): Promise<string> {
-  const envScript = process.env.RIG_PYTHON_SCRIPT?.trim();
-  const candidates = [
-    envScript
-      ? path.isAbsolute(envScript)
-        ? envScript
-        : path.resolve(appRoot, envScript)
-      : "",
-    path.resolve(appRoot, "image_mesh_animation/arap_animate.py"),
-    path.resolve(appRoot, "image_2/arap_animate.py"),
-    path.resolve(appRoot, "../image_mesh_animation/arap_animate.py"),
-    path.resolve(appRoot, "../image_2/arap_animate.py"),
-  ].filter(Boolean);
+async function callPythonWorker(
+  imageBuffer: Buffer,
+  useEditor: boolean
+): Promise<{ rigJson: unknown; files: Record<string, { contentType: string; dataBase64: string }> }> {
+  const workerUrl = process.env.RIG_WORKER_URL;
+  const workerSecret = process.env.RIG_WORKER_SECRET;
 
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // Keep trying fallbacks.
-    }
+  if (!workerUrl || !workerSecret) {
+    throw new Error(
+      "RIG_WORKER_URL and RIG_WORKER_SECRET environment variables must be set for Vercel deployment"
+    );
   }
 
-  throw new Error(
-    `Could not find rig script. Set RIG_PYTHON_SCRIPT or place arap_animate.py in one of: ${candidates.join(", ")}`
-  );
-}
+  // Create FormData with image
+  const formData = new FormData();
+  formData.append("image", new Blob([Uint8Array.from(imageBuffer)], { type: "image/png" }), "input.png");
+  formData.append("use_editor", String(useEditor));
 
-function runPython(scriptPath: string, args: string[]): Promise<void> {
-  const pythonBin = process.env.RIG_PYTHON_BIN?.trim() || "python3";
-  return new Promise((resolve, reject) => {
-    execFile(
-      pythonBin,
-      [scriptPath, ...args],
-      {
-        cwd: path.dirname(scriptPath),
-        maxBuffer: 1024 * 1024 * 20,
-      },
-      (error) => {
-      if (error) reject(error);
-      else resolve();
-      }
-    );
+  const response = await fetch(workerUrl, {
+    method: "POST",
+    headers: {
+      "X-Worker-Secret": workerSecret,
+    },
+    body: formData,
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Python worker failed: ${response.status} - ${errorText}`
+    );
+  }
+
+  const result = await response.json() as {
+    ok: boolean;
+    rigJson?: unknown;
+    files?: Record<string, { contentType: string; dataBase64: string }>;
+    error?: string;
+  };
+
+  if (!result.ok || !result.rigJson || !result.files) {
+    throw new Error(`Python worker error: ${result.error || "Unknown error"}`);
+  }
+
+  return {
+    rigJson: result.rigJson,
+    files: result.files,
+  };
 }
 
 export async function POST(request: Request) {
@@ -122,28 +124,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Character has no imageUrl" }, { status: 400 });
     }
 
-    const appRoot = process.cwd();
-    const pythonScript = await resolvePythonScript(appRoot);
     const rigApiPath = `/api/rig/${characterId}/rig.json`;
-
-    const tmp = await fs.mkdtemp(path.join(tmpdir(), `rig-${characterId}-`));
-    const inputPath = path.join(tmp, "input.png");
-    const outDir = path.join(tmp, "out");
-    await fs.mkdir(outDir, { recursive: true });
 
     try {
       let imageBuffer: Buffer;
       const fromData = decodeDataUrl(imageUrl);
       if (fromData) {
         imageBuffer = fromData;
-        await fs.writeFile(inputPath, imageBuffer);
       } else if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
         const res = await fetch(imageUrl);
         if (!res.ok) {
           throw new Error("Failed to download character image");
         }
         imageBuffer = Buffer.from(await res.arrayBuffer());
-        await fs.writeFile(inputPath, imageBuffer);
       } else {
         throw new Error("Unsupported imageUrl format. Expected data URL or http(s) URL.");
       }
@@ -174,45 +167,10 @@ export async function POST(request: Request) {
         });
       }
 
-      await runPython(
-        pythonScript,
-        useEditor
-          ? [inputPath, "--out", outDir]
-          : [inputPath, "--out", outDir, "--no-editor"]
-      );
-
-      const rigJsonPath = path.join(outDir, "rig.json");
-      await fs.access(rigJsonPath);
-
-      const rigRaw = await fs.readFile(rigJsonPath, "utf8");
-      const rigJson = JSON.parse(rigRaw) as {
-        parts?: Record<string, { file?: string }>;
-      };
-
-      const fileKeys = Array.from(
-        new Set(
-          Object.values(rigJson.parts ?? {})
-            .map((part) => String(part?.file ?? "").trim().replace(/\\/g, "/"))
-            .filter(Boolean),
-        ),
-      );
-
-      const rigFiles: Record<string, { contentType: string; dataBase64: string }> = {};
-      for (const fileKey of fileKeys) {
-        const sanitized = fileKey.replace(/^\/+/, "");
-        if (sanitized.includes("..")) {
-          throw new Error(`Unsafe rig file path: ${fileKey}`);
-        }
-        const absPath = path.resolve(outDir, sanitized);
-        if (!absPath.startsWith(path.resolve(outDir))) {
-          throw new Error(`Rig file escapes output directory: ${fileKey}`);
-        }
-        const buf = await fs.readFile(absPath);
-        rigFiles[sanitized] = {
-          contentType: fileContentType(sanitized),
-          dataBase64: buf.toString("base64"),
-        };
-      }
+      // Call Python worker instead of local execution
+      const workerResponse = await callPythonWorker(imageBuffer, useEditor);
+      const rigJson = workerResponse.rigJson;
+      const rigFiles = workerResponse.files;
 
       const riggedAt = new Date();
       await collection.updateOne(
@@ -237,8 +195,9 @@ export async function POST(request: Request) {
         riggedAt: riggedAt.toISOString(),
         cached: false,
       });
-    } finally {
-      await fs.rm(tmp, { recursive: true, force: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to generate rig";
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to generate rig";
