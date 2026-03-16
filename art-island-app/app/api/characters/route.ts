@@ -40,6 +40,8 @@ const characterSchema = new mongoose.Schema({
   memories:              { type: [memorySchema],             default: [] },
   evolutionMilestones:   { type: [evolutionMilestoneSchema], default: [] },
   versionHistory:        { type: [versionHistorySchema],     default: [] },
+  isArchived:  { type: Boolean, default: false },
+  archivedAt:  { type: Date, default: null },
   createdAt:   { type: Date, default: Date.now },
 });
 
@@ -78,6 +80,7 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
     islandId: number;
     joints:   unknown;
     personality: unknown;
+    isArchived?: boolean | null;
     memories:            Array<{ id: string; text: string; createdAt: Date }>;
     evolutionMilestones: Array<{ imageUrl: string; createdAt: Date; label?: string }>;
     versionHistory:      Array<{ imageUrl: string; createdAt: Date; stage: number; label?: string }>;
@@ -114,6 +117,7 @@ function serializeCharacter(char: mongoose.Document & Record<string, unknown>) {
     islandId: c.islandId,
     joints:   c.joints ?? null,
     personality: c.personality ?? null,
+    isArchived: c.isArchived ?? false,
     memories: (c.memories ?? []).map((m) => ({
       id: m.id, text: m.text, createdAt: m.createdAt,
     })),
@@ -175,6 +179,8 @@ export async function POST(request: Request) {
       joints:      body.joints ?? null,
       animationPreference: body.animationPreference ?? "auto",
       personality: body.personality ?? null,
+      isArchived: false,
+      archivedAt: null,
       memories:    [],
       // Seed Stage 1 immediately so versionHistory is never empty
       versionHistory: body.imageUrl
@@ -195,6 +201,8 @@ export async function POST(request: Request) {
 //  { action: "remove", characterId, memoryId }
 //  { action: "mature-story", characterId, memoryText?, personalityDelta? }
 //  { action: "evolve", characterId, imageUrl, joints, personality?, memoryText? }
+//  { action: "archive-from-island", characterId }
+//  { action: "restore-to-island", characterId, islandId? }
 
 export async function PATCH(request: Request) {
   try {
@@ -237,6 +245,24 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Invalid animationPreference" }, { status: 400 });
       }
       char.animationPreference = mode;
+
+    // ── soft-remove from island (keeps story history intact) ───────────────
+    } else if (action === "archive-from-island") {
+      char.isArchived = true;
+      char.archivedAt = new Date();
+
+    // ── bring character back to island ─────────────────────────────────────
+    } else if (action === "restore-to-island") {
+      const nextIslandIdRaw = body.islandId;
+      if (nextIslandIdRaw !== undefined && nextIslandIdRaw !== null) {
+        const parsedIslandId = Number(nextIslandIdRaw);
+        if (!Number.isFinite(parsedIslandId)) {
+          return NextResponse.json({ error: "Invalid islandId" }, { status: 400 });
+        }
+        char.islandId = parsedIslandId;
+      }
+      char.isArchived = false;
+      char.archivedAt = null;
 
     // ── mature from story interaction ────────────────────────────────────────
     } else if (action === "mature-story") {

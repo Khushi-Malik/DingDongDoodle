@@ -38,7 +38,13 @@ export interface CharacterDetailProps {
   versionHistory?: VersionStage[];
   onClose: () => void;
   onRigGenerated?: (updated: { id: string; rigPath: string; riggedAt: string }) => void;
+  onJointsUpdated?: (updated: {
+    id: string;
+    joints: Record<string, { x: number; y: number }>;
+    riggedAt: string;
+  }) => void;
   onAnimationUpdated?: (updated: { id: string; animationPreference: "auto" | RigAnimMode }) => void;
+  onRemoveFromIsland?: () => void | Promise<void>;
   /** Fired after successful evolve so the island can update the sprite */
   onEvolved?: (updated: {
     id: string;
@@ -85,7 +91,9 @@ export function CharacterDetail({
   versionHistory:  initialHistory     = [],
   onClose,
   onRigGenerated,
+  onJointsUpdated,
   onAnimationUpdated,
+  onRemoveFromIsland,
   onEvolved,
 }: CharacterDetailProps) {
   const [tab, setTab]                 = useState<Tab>("info");
@@ -103,9 +111,14 @@ export function CharacterDetail({
   const [chatInput, setChatInput]                 = useState("");
   const [chatBusy, setChatBusy]                   = useState(false);
   const [liveRigPath, setLiveRigPath]             = useState<string | null>(rigPath ?? null);
+  const [liveJoints, setLiveJoints]               = useState(joints ?? null);
+  const [liveRiggedAt, setLiveRiggedAt]           = useState<string | Date | null>(riggedAt ?? null);
   const [liveAnimationPreference, setLiveAnimationPreference] = useState<"auto" | RigAnimMode>(animationPreference);
   const [animationBusy, setAnimationBusy] = useState(false);
   const [rigBusy, setRigBusy]                     = useState(false);
+  const [manualRigBusy, setManualRigBusy]         = useState(false);
+  const [manualRigOpen, setManualRigOpen]         = useState(false);
+  const [removingFromIsland, setRemovingFromIsland] = useState(false);
   const [rigMessage, setRigMessage]               = useState<string | null>(null);
 
   const favoriteForQuote = useMemo(() => {
@@ -234,6 +247,7 @@ export function CharacterDetail({
 
       const refreshedPath = `${generatedPath}?v=${Date.now()}`;
       setLiveRigPath(refreshedPath);
+      setLiveRiggedAt(riggedAtValue);
       setRigMessage("Rig generated successfully. Animation updated.");
       onRigGenerated?.({ id, rigPath: refreshedPath, riggedAt: riggedAtValue });
     } catch (err) {
@@ -271,6 +285,47 @@ export function CharacterDetail({
       setRigMessage(message);
     } finally {
       setAnimationBusy(false);
+    }
+  };
+
+  const removeFromIsland = async () => {
+    if (!onRemoveFromIsland || removingFromIsland) return;
+    setRemovingFromIsland(true);
+    try {
+      await onRemoveFromIsland();
+    } finally {
+      setRemovingFromIsland(false);
+    }
+  };
+
+  const handleManualRigConfirm = async (
+    nextJoints: Record<string, { x: number; y: number }>,
+  ) => {
+    if (manualRigBusy) return;
+    setManualRigBusy(true);
+    setRigMessage(null);
+    try {
+      const res = await fetch("/api/rig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageId: id, joints: nextJoints }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to save rig points");
+      }
+
+      const riggedAtValue = new Date().toISOString();
+      setLiveJoints(nextJoints);
+      setLiveRiggedAt(riggedAtValue);
+      setManualRigOpen(false);
+      setRigMessage("Rig points updated successfully.");
+      onJointsUpdated?.({ id, joints: nextJoints, riggedAt: riggedAtValue });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save rig points.";
+      setRigMessage(message);
+    } finally {
+      setManualRigBusy(false);
     }
   };
 
@@ -368,7 +423,7 @@ export function CharacterDetail({
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 bg-black/45 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
-        onClick={evolveStep === "idle" ? onClose : undefined}
+        onClick={evolveStep === "idle" && !manualRigOpen ? onClose : undefined}
       >
         <motion.div
           initial={{ scale: 0.96, opacity: 0 }}
@@ -480,8 +535,39 @@ export function CharacterDetail({
               </motion.div>
             )}
 
+            {/* ── Manual rig points ──────────────────────────────────────────── */}
+            {evolveStep === "idle" && manualRigOpen && (
+              <motion.div key="manual-rig"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <ModalHeader
+                  title="Rig again manually"
+                  sub={`Place joints again for ${name}`}
+                  onBack={() => setManualRigOpen(false)}
+                />
+                {rigMessage && (
+                  <p className="mx-5 mt-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm text-stone-600">
+                    {rigMessage}
+                  </p>
+                )}
+                <div className="p-4">
+                  {manualRigBusy ? (
+                    <div className="flex items-center justify-center h-56 gap-3">
+                      <div className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-stone-500">Saving rig points...</p>
+                    </div>
+                  ) : (
+                    <JointEditor
+                      imageUrl={liveImageUrl}
+                      onConfirm={handleManualRigConfirm}
+                      onBack={() => setManualRigOpen(false)}
+                    />
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {/* ── Normal view (idle) ────────────────────────────────────────── */}
-            {evolveStep === "idle" && (
+            {evolveStep === "idle" && !manualRigOpen && (
               <motion.div key="normal"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
@@ -517,8 +603,8 @@ export function CharacterDetail({
                           <AnimatedRigSprite
                             imageUrl={liveImageUrl}
                             rigPath={liveRigPath}
-                            joints={joints}
-                            riggedAt={riggedAt}
+                            joints={liveJoints}
+                            riggedAt={liveRiggedAt}
                             name={name}
                             mode={previewMode}
                             direction={1}
@@ -538,13 +624,39 @@ export function CharacterDetail({
                               className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors">
                               ✨ Evolve character
                             </button>
+                            {onRemoveFromIsland && (
+                              <button
+                                type="button"
+                                onClick={() => void removeFromIsland()}
+                                disabled={removingFromIsland}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-red-700 transition-colors"
+                              >
+                                {removingFromIsland ? "Removing..." : "Remove from island"}
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => void generateRig()}
                               disabled={rigBusy}
                               className="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white hover:bg-stone-50 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-stone-700 transition-colors"
                             >
-                              {rigBusy ? "Generating..." : "Generate mesh rig"}
+                              {rigBusy
+                                ? "Generating..."
+                                : liveRigPath
+                                  ? "Generate mesh rig again"
+                                  : "Generate mesh rig"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setManualRigOpen(true)}
+                              disabled={manualRigBusy}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 hover:bg-blue-100 disabled:bg-stone-100 disabled:text-stone-400 px-3.5 py-1.5 text-xs font-semibold text-blue-700 transition-colors"
+                            >
+                              {manualRigBusy
+                                ? "Saving..."
+                                : liveJoints
+                                  ? "Rig again (manual points)"
+                                  : "Set rig points manually"}
                             </button>
                             {stageCount > 1 && (
                               <button type="button" onClick={() => setTab("evolution")}

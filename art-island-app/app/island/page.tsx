@@ -46,6 +46,7 @@ interface CharacterData {
   age: number;
   position: { x: number; y: number };
   islandId: number;
+  isArchived?: boolean;
   personality?: {
     catchphrase?: string;
     traits?: string[];
@@ -194,10 +195,12 @@ export default function App() {
         if (res.ok) {
           const raw: CharacterData[] = await res.json();
           setCharacters(
-            raw.map((c) => ({
+            raw
+              .filter((c) => !c.isArchived)
+              .map((c) => ({
               ...c,
               position: c.position ?? randomRoamTarget(),
-            })),
+              })),
           );
         }
       } catch (e) {
@@ -569,6 +572,28 @@ export default function App() {
     }
   };
 
+  const handleArchiveCharacter = async (character: CharacterData) => {
+    if (!window.confirm(`Remove ${character.name} from this island?`)) return;
+    try {
+      const res = await fetch("/api/characters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "archive-from-island",
+          characterId: character.id,
+        }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "Failed to remove character from island");
+      }
+      setCharacters((prev) => prev.filter((c) => c.id !== character.id));
+      setSelectedCharacter(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to remove character from island.");
+    }
+  };
+
   const getCharacterPosition = (islandId: number) => {
     const island = islands.find((i) => i.id === islandId);
     if (!island) return { x: 50, y: 50 };
@@ -822,7 +847,7 @@ export default function App() {
                 }}
               >
                 {characters
-                  .filter((ch) => ch.islandId === planet.id)
+                  .filter((ch) => ch.islandId === planet.id && !ch.isArchived)
                   .map((ch) => {
                     const target = roamTargetsRef.current[ch.id];
                     const moving =
@@ -952,9 +977,9 @@ export default function App() {
           />
           <NavBtn
             icon={<Bone className="w-3.5 h-3.5" />}
-            label="Rig Character"
-            shortLabel="Rig"
-            onClick={() => router.push("/rig")}
+            label="Characters"
+            shortLabel="Chars"
+            onClick={() => router.push("/characters")}
             bg={bBg}
             hov={bHov}
             color={bTxt}
@@ -1044,7 +1069,7 @@ export default function App() {
           panX={panX}
           panY={panY}
           zoom={zoom}
-          darkMode={darkMode ?? false}
+          darkMode={darkMode}
           onFlyToIsland={flyToIsland}
         />
       )}
@@ -1098,6 +1123,7 @@ export default function App() {
                   : prev,
               );
             }}
+            onRemoveFromIsland={() => handleArchiveCharacter(selectedCharacter)}
             onEvolved={(updated) => {
               setCharacters((prev) =>
                 prev.map((c) =>
