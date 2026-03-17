@@ -601,13 +601,40 @@ export default function StoryboardPage() {
         allSettings.find((s) => s.id === selectedSetting)?.label ??
         selectedSetting;
 
+      const storyCharactersPayload = selectedCharacters.map((character) => ({
+        id: character.id,
+        name: character.name,
+        age: character.age,
+        memories: (character.memories ?? [])
+          .slice(-8)
+          .map((m) => ({ text: String(m.text || "").slice(0, 280) })),
+        personality: character.personality
+          ? {
+              catchphrase: String(character.personality.catchphrase || "").slice(
+                0,
+                120,
+              ),
+              traits: (character.personality.traits ?? [])
+                .filter((t) => typeof t === "string" && t.trim().length > 0)
+                .slice(0, 8)
+                .map((t) => t.slice(0, 40)),
+              dailyActivity: String(
+                character.personality.dailyActivity || "",
+              ).slice(0, 120),
+              favoriteThing: String(
+                character.personality.favoriteThing || "",
+              ).slice(0, 120),
+            }
+          : null,
+      }));
+
       const res = await fetch("/api/story-generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          characters: selectedCharacters,
+          characters: storyCharactersPayload,
           concept: selectedConcept,
           conceptLabel,
           childName,
