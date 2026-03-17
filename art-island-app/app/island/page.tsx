@@ -175,6 +175,9 @@ export default function App() {
     startClientY: number;
     startX: number;
     startY: number;
+    moved: boolean;
+    lastX: number;
+    lastY: number;
   } | null>(null);
   const flyRafRef = useRef<number | null>(null);
   const roamRafRef = useRef<number | null>(null);
@@ -475,7 +478,17 @@ export default function App() {
     island: IslandData,
   ) => {
     if (selectedCharacter) return;
-    if (armedIslandId !== island.id && e.detail < 2) return;
+    const t = e.target as HTMLElement;
+    if (
+      t.closest("[data-no-pan]") ||
+      t.closest("button") ||
+      t.closest("a") ||
+      t.closest("input") ||
+      t.closest("select") ||
+      t.closest("textarea")
+    ) {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setArmedIslandId(island.id);
@@ -485,8 +498,10 @@ export default function App() {
       startClientY: e.clientY,
       startX: island.x,
       startY: island.y,
+      moved: false,
+      lastX: island.x,
+      lastY: island.y,
     };
-    setDraggingIslandId(island.id);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
@@ -496,17 +511,27 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     const d = islandDragRef.current;
+    const dxClient = e.clientX - d.startClientX;
+    const dyClient = e.clientY - d.startClientY;
+    if (!d.moved && Math.hypot(dxClient, dyClient) <= 3) return;
+
+    if (!d.moved) {
+      d.moved = true;
+      setDraggingIslandId(d.islandId);
+    }
+
+    const nextX = d.startX + dxClient / (zoomRef.current * WORLD_SCALE);
+    const nextY = d.startY + dyClient / (zoomRef.current * WORLD_SCALE);
+    d.lastX = nextX;
+    d.lastY = nextY;
+
     setIslands((prev) =>
       prev.map((i) =>
         i.id === d.islandId
           ? {
               ...i,
-              x:
-                d.startX +
-                (e.clientX - d.startClientX) / (zoomRef.current * WORLD_SCALE),
-              y:
-                d.startY +
-                (e.clientY - d.startClientY) / (zoomRef.current * WORLD_SCALE),
+              x: nextX,
+              y: nextY,
             }
           : i,
       ),
@@ -523,13 +548,12 @@ export default function App() {
     const d = islandDragRef.current;
     islandDragRef.current = null;
     setDraggingIslandId(null);
-    setArmedIslandId(null);
-    const moved = islands.find((i) => i.id === d.islandId);
-    if (moved) {
+    if (d.moved) {
+      setArmedIslandId(null);
       fetch("/api/islands", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: moved.id, x: moved.x, y: moved.y }),
+        body: JSON.stringify({ id: d.islandId, x: d.lastX, y: d.lastY }),
       }).catch(console.error);
     }
   };
