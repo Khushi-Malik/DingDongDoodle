@@ -3,7 +3,6 @@ import connectDB from "@/lib/mongodb";
 import mongoose from "mongoose";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
@@ -46,12 +45,25 @@ function fileContentType(filePath: string) {
   return "application/octet-stream";
 }
 
+function cleanEnv(name: string): string {
+  const raw = process.env[name] ?? "";
+  const firstLine = raw.split(/\r?\n/)[0] ?? "";
+  return firstLine.trim();
+}
+
+function normalizeWorkerUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  if (/\/generate-rig\/?$/i.test(trimmed)) return trimmed;
+  return `${trimmed.replace(/\/+$/, "")}/generate-rig`;
+}
+
 async function callPythonWorker(
   imageBuffer: Buffer,
   useEditor: boolean
 ): Promise<{ rigJson: unknown; files: Record<string, { contentType: string; dataBase64: string }> }> {
-  const workerUrl = process.env.RIG_WORKER_URL;
-  const workerSecret = process.env.RIG_WORKER_SECRET;
+  const workerUrl = normalizeWorkerUrl(cleanEnv("RIG_WORKER_URL"));
+  const workerSecret = cleanEnv("RIG_WORKER_SECRET");
 
   if (!workerUrl || !workerSecret) {
     throw new Error(
