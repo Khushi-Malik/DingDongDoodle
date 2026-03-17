@@ -321,6 +321,24 @@ export async function PATCH(request: Request) {
         };
       }
 
+    // ── set personality directly ─────────────────────────────────────────────
+    } else if (action === "set-personality") {
+      const p = body.personality;
+      if (!p || typeof p !== "object") {
+        return NextResponse.json({ error: "personality object is required" }, { status: 400 });
+      }
+      const catchphrase   = String(p.catchphrase   || "").trim();
+      const dailyActivity = String(p.dailyActivity || "").trim();
+      const favoriteThing = String(p.favoriteThing || "").trim();
+      const traits = Array.isArray(p.traits)
+        ? (p.traits as unknown[])
+            .filter((t): t is string => typeof t === "string")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+      char.personality = { catchphrase, traits, dailyActivity, favoriteThing };
+      char.markModified("personality");
+
     // ── evolve ───────────────────────────────────────────────────────────────
     } else if (action === "evolve") {
       const { imageUrl, joints, personality, memoryText } = body;

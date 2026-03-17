@@ -107,6 +107,9 @@ export function CharacterDetail({
   const [manualRigOpen,           setManualRigOpen]           = useState(false);
   const [removingFromIsland,      setRemovingFromIsland]      = useState(false);
   const [rigMessage,              setRigMessage]              = useState<string | null>(null);
+  const [personalityEditOpen,     setPersonalityEditOpen]     = useState(false);
+  const [personalityDraft,        setPersonalityDraft]        = useState({ catchphrase: "", traitsText: "", dailyActivity: "", favoriteThing: "" });
+  const [personalitySaving,       setPersonalitySaving]       = useState(false);
 
   const favoriteForQuote = useMemo(() => {
     if (livePersonality?.favoriteThing?.trim()) return livePersonality.favoriteThing.trim();
@@ -217,6 +220,41 @@ export function CharacterDetail({
     if (!onRemoveFromIsland || removingFromIsland) return;
     setRemovingFromIsland(true);
     try { await onRemoveFromIsland(); } finally { setRemovingFromIsland(false); }
+  };
+
+  const openPersonalityEdit = () => {
+    setPersonalityDraft({
+      catchphrase:   livePersonality?.catchphrase   ?? "",
+      traitsText:    (livePersonality?.traits ?? []).join(", "),
+      dailyActivity: livePersonality?.dailyActivity ?? "",
+      favoriteThing: livePersonality?.favoriteThing ?? "",
+    });
+    setPersonalityEditOpen(true);
+  };
+
+  const savePersonality = async () => {
+    if (personalitySaving) return;
+    setPersonalitySaving(true);
+    try {
+      const traits = personalityDraft.traitsText.split(",").map((s) => s.trim()).filter(Boolean);
+      const next = {
+        catchphrase:   personalityDraft.catchphrase.trim(),
+        traits,
+        dailyActivity: personalityDraft.dailyActivity.trim(),
+        favoriteThing: personalityDraft.favoriteThing.trim(),
+      };
+      const res = await fetch("/api/characters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-personality", characterId: id, personality: next }),
+      });
+      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error || "Could not save personality."); }
+      const updated = await res.json();
+      setLivePersonality(updated.personality ?? null);
+      setPersonalityEditOpen(false);
+    } catch (err) {
+      console.error(err);
+    } finally { setPersonalitySaving(false); }
   };
 
   const handleManualRigConfirm = async (nextJoints: Record<string, { x: number; y: number }>) => {
@@ -538,8 +576,69 @@ export function CharacterDetail({
                         <div className="flex-1 min-w-0 flex flex-col gap-4 p-4 overflow-y-auto">
 
                           {/* Personality */}
-                          {livePersonality && (
+                          {personalityEditOpen ? (
+                            <div className="rounded-xl border border-stone-200 overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2.5 bg-stone-50 border-b border-stone-100">
+                                <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest">
+                                  {livePersonality ? "Edit personality" : "Add personality"}
+                                </p>
+                                <button type="button" onClick={() => setPersonalityEditOpen(false)} className="text-xs text-stone-400 hover:text-stone-600 transition">Cancel</button>
+                              </div>
+                              <div className="p-4 space-y-3">
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Catchphrase</label>
+                                  <input
+                                    value={personalityDraft.catchphrase}
+                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, catchphrase: e.target.value }))}
+                                    placeholder='e.g. "Let&apos;s go!"'
+                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">
+                                    Traits <span className="font-normal normal-case">(comma-separated)</span>
+                                  </label>
+                                  <input
+                                    value={personalityDraft.traitsText}
+                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, traitsText: e.target.value }))}
+                                    placeholder="e.g. curious, brave, funny"
+                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Daily activity</label>
+                                  <input
+                                    value={personalityDraft.dailyActivity}
+                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, dailyActivity: e.target.value }))}
+                                    placeholder="e.g. Collects shiny rocks"
+                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Favourite thing</label>
+                                  <input
+                                    value={personalityDraft.favoriteThing}
+                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, favoriteThing: e.target.value }))}
+                                    placeholder="e.g. Stargazing"
+                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void savePersonality()}
+                                  disabled={personalitySaving}
+                                  className="w-full rounded-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-stone-900 transition-colors"
+                                >
+                                  {personalitySaving ? "Saving…" : "Save personality"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : livePersonality ? (
                             <div className="rounded-xl border border-stone-200 divide-y divide-stone-100 overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2">
+                                <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest">Personality</p>
+                                <button type="button" onClick={openPersonalityEdit} className="text-[11px] text-stone-400 hover:text-stone-600 font-medium transition">Edit</button>
+                              </div>
                               {livePersonality.catchphrase && (
                                 <InfoRow label="Catchphrase">
                                   <span className="italic">&ldquo;{livePersonality.catchphrase}&rdquo;</span>
@@ -562,6 +661,14 @@ export function CharacterDetail({
                                 <InfoRow label="Favourite thing">{livePersonality.favoriteThing}</InfoRow>
                               )}
                             </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={openPersonalityEdit}
+                              className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 hover:bg-stone-100 px-4 py-4 text-sm text-stone-400 hover:text-stone-600 transition-colors"
+                            >
+                              <span>＋</span> Add personality
+                            </button>
                           )}
 
                           {/* Quote banner */}
