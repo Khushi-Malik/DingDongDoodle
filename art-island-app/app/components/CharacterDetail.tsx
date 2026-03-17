@@ -337,16 +337,14 @@ export function CharacterDetail({
         >
           <AnimatePresence mode="wait">
 
-            {/* ── Choose: draw or upload ──────────────────────────────────── */}
+            {/* ── Choose ─────────────────────────────────────────────────── */}
             {evolveStep === "choose" && (
               <motion.div key="choose" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
                 <ModalHeader title={`Evolve ${name}`} sub="Choose how to create the next stage" onBack={cancelEvolve} />
                 <div className="flex-1 overflow-y-auto p-5 space-y-5">
                   <div className="flex justify-center">
                     <div className="text-center">
-                      <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-2">
-                        Current — Stage {stageCount || 1}
-                      </p>
+                      <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-2">Current — Stage {stageCount || 1}</p>
                       <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 bg-stone-50 mx-auto">
                         <Image src={liveImageUrl} alt="current" fill className="object-contain p-2" />
                       </div>
@@ -370,12 +368,9 @@ export function CharacterDetail({
                     <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">
                       What changed? <span className="font-normal normal-case">(optional)</span>
                     </label>
-                    <input
-                      value={memoryNote}
-                      onChange={(e) => setMemoryNote(e.target.value)}
+                    <input value={memoryNote} onChange={(e) => setMemoryNote(e.target.value)}
                       placeholder={`e.g. ${name} learned to fly today`}
-                      className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
-                    />
+                      className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400" />
                   </div>
                 </div>
               </motion.div>
@@ -384,19 +379,11 @@ export function CharacterDetail({
             {/* ── Rig joints ─────────────────────────────────────────────── */}
             {(evolveStep === "rig" || evolveStep === "saving") && newImageUrl && (
               <motion.div key="rig" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
-                <ModalHeader
-                  title="Place joints"
-                  sub={`Mark ${name}'s joints for stage ${(stageCount || 1) + 1}`}
-                  onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }}
-                />
-                {evolveError && (
-                  <p className="mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{evolveError}</p>
-                )}
+                <ModalHeader title="Place joints" sub={`Mark ${name}'s joints for stage ${(stageCount || 1) + 1}`} onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }} />
+                {evolveError && <p className="mx-5 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{evolveError}</p>}
                 <div className="flex-1 overflow-hidden p-4">
                   {evolveStep === "saving" ? (
-                    <div className="flex items-center justify-center h-full gap-2">
-                      <Spinner /><p className="text-sm text-stone-400">Saving evolution…</p>
-                    </div>
+                    <div className="flex items-center justify-center h-full gap-2"><Spinner /><p className="text-sm text-stone-400">Saving evolution…</p></div>
                   ) : (
                     <JointEditor imageUrl={newImageUrl} onConfirm={handleRigConfirm} onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }} />
                   )}
@@ -433,16 +420,11 @@ export function CharacterDetail({
                     Evolution {stageCount > 0 && <Pill n={stageCount} amber />}
                   </TabBtn>
                   <div className="flex-1" />
-                  <button
-                    type="button"
-                    onClick={() => setEvolveStep("choose")}
-                    className="mr-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors"
-                  >
+                  <button type="button" onClick={() => setEvolveStep("choose")}
+                    className="mr-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors">
                     ✨ Evolve
                   </button>
-                  <button type="button" onClick={onClose} className="mr-3 text-stone-400 hover:text-stone-600 text-xl leading-none transition">
-                    ×
-                  </button>
+                  <button type="button" onClick={onClose} className="mr-3 text-stone-400 hover:text-stone-600 text-xl leading-none transition">×</button>
                 </div>
 
                 {/* Tab content */}
@@ -451,24 +433,18 @@ export function CharacterDetail({
                   {/* ── Info ──────────────────────────────────────────────── */}
                   {tab === "info" && (
                     <div className="h-full overflow-y-auto overscroll-contain">
-                      {/* Two-column layout */}
                       <div className="flex min-h-full divide-x divide-stone-100">
 
-                        {/* ── LEFT: Sprite + name + all buttons ── */}
-                        <div className="w-48 shrink-0 flex flex-col gap-4 p-4">
+                        {/* ── LEFT column ─────────────────────────────────── */}
+                        <div className="w-48 shrink-0 flex flex-col gap-4 p-4 overflow-y-auto">
 
-                          {/* Sprite */}
+                          {/* Sprite + name */}
                           <div className="flex flex-col items-center gap-2">
                             <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-stone-200 bg-stone-50">
                               <AnimatedRigSprite
-                                imageUrl={liveImageUrl}
-                                rigPath={liveRigPath}
-                                joints={liveJoints}
-                                riggedAt={liveRiggedAt}
-                                name={name}
-                                mode={previewMode}
-                                direction={1}
-                                frameSizePx={120}
+                                imageUrl={liveImageUrl} rigPath={liveRigPath} joints={liveJoints}
+                                riggedAt={liveRiggedAt} name={name} mode={previewMode}
+                                direction={1} frameSizePx={120}
                               />
                               {stageCount > 0 && (
                                 <span className="absolute bottom-1.5 right-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-stone-900">
@@ -482,97 +458,79 @@ export function CharacterDetail({
                             </div>
                           </div>
 
-                          {/* Divider */}
+                        
+                          {stageCount > 1 && (
+                            <button type="button" onClick={() => setTab("evolution")}
+                              className="w-full text-xs text-stone-400 hover:text-stone-600 font-medium transition text-center -mt-2">
+                              View {stageCount} stages →
+                            </button>
+                          )}
+
                           <div className="border-t border-stone-100" />
 
-                          {/* Animation dropdown */}
+                          {/* Rig group */}
                           <div>
-                            <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Animation</p>
-                            <select
-                              value={liveAnimationPreference}
-                              disabled={animationBusy}
-                              onChange={(e) => void updateAnimationPreference(e.target.value as "auto" | RigAnimMode)}
-                              className="w-full rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 focus:outline-none focus:border-stone-400 disabled:opacity-50"
-                            >
-                              {ANIMATION_OPTIONS.map((opt) => (
-                                <option key={opt.key} value={opt.key}>{opt.label}</option>
-                              ))}
-                            </select>
+                            <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-2">Rig</p>
+                            <div className="rounded-xl border border-stone-200 overflow-hidden divide-y divide-stone-100">
+
+                              {/* Animation row — inside rig group as it's rig-related */}
+                              <div className="px-3 py-2">
+                                <p className="text-[10px] text-stone-400 mb-1">Animation</p>
+                                <select
+                                  value={liveAnimationPreference}
+                                  disabled={animationBusy}
+                                  onChange={(e) => void updateAnimationPreference(e.target.value as "auto" | RigAnimMode)}
+                                  className="w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-xs text-stone-700 focus:outline-none focus:border-stone-400 disabled:opacity-50"
+                                >
+                                  {ANIMATION_OPTIONS.map((opt) => (
+                                    <option key={opt.key} value={opt.key}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Generate rig */}
+                              <button type="button" onClick={() => void generateRig()} disabled={rigBusy}
+                                className="w-full text-left px-3 py-2.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 transition-colors">
+                                {rigBusy ? "Generating…" : liveRigPath ? "Regenerate rig" : "Generate rig"}
+                              </button>
+
+                              {/* Manual rig */}
+                              <button type="button" onClick={() => setManualRigOpen(true)} disabled={manualRigBusy}
+                                className="w-full text-left px-3 py-2.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 transition-colors">
+                                {manualRigBusy ? "Saving…" : liveJoints ? "Re-rig manually" : "Set rig manually"}
+                              </button>
+
+                              {/* Island rig toggle — lives here because it's about rig-on-island */}
+                              {onIslandRigToggle && (
+                                <button type="button" onClick={() => onIslandRigToggle(!islandRigEnabled)}
+                                  className={`w-full text-left px-3 py-2.5 text-xs font-medium transition-colors ${
+                                    islandRigEnabled
+                                      ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                                      : "text-stone-600 hover:bg-stone-50"
+                                  }`}>
+                                  {islandRigEnabled ? "Use classic on island" : "Use rig on island"}
+                                </button>
+                              )}
+                            </div>
+
+                            {rigMessage && (
+                              <p className="text-[10px] text-stone-400 mt-1.5 px-0.5">{rigMessage}</p>
+                            )}
                           </div>
 
-                          {/* Divider */}
-                          <div className="border-t border-stone-100" />
-
-                          {/* Action buttons — full width, stacked */}
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEvolveStep("choose")}
-                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3 py-2 text-xs font-semibold text-stone-900 transition-colors"
-                            >
-                              ✨ Evolve character
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => void generateRig()}
-                              disabled={rigBusy}
-                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-stone-600 transition-colors"
-                            >
-                              {rigBusy ? "Generating…" : liveRigPath ? "Regenerate rig" : "Generate rig"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setManualRigOpen(true)}
-                              disabled={manualRigBusy}
-                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors"
-                            >
-                              {manualRigBusy ? "Saving…" : liveJoints ? "Re-rig manually" : "Set rig manually"}
-                            </button>
-
-                            {onIslandRigToggle && (
-                              <button
-                                type="button"
-                                onClick={() => onIslandRigToggle(!islandRigEnabled)}
-                                className={`w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                                  islandRigEnabled
-                                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                    : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                                }`}
-                              >
-                                {islandRigEnabled ? "Classic on island" : "Use rig on island"}
-                              </button>
-                            )}
-
-                            {onRemoveFromIsland && (
-                              <button
-                                type="button"
-                                onClick={() => void removeFromIsland()}
-                                disabled={removingFromIsland}
-                                className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-600 transition-colors"
-                              >
+                          {/* Island — remove, separated at bottom */}
+                          {onRemoveFromIsland && (
+                            <>
+                              <div className="border-t border-stone-100" />
+                              <button type="button" onClick={() => void removeFromIsland()} disabled={removingFromIsland}
+                                className="w-full inline-flex items-center justify-center rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-600 transition-colors">
                                 {removingFromIsland ? "Removing…" : "Remove from island"}
                               </button>
-                            )}
-
-                            {stageCount > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => setTab("evolution")}
-                                className="w-full text-xs text-stone-400 hover:text-stone-600 font-medium transition text-center py-1"
-                              >
-                                View {stageCount} stages →
-                              </button>
-                            )}
-                          </div>
-
-                          {rigMessage && (
-                            <p className="text-[11px] text-stone-400 text-center">{rigMessage}</p>
+                            </>
                           )}
                         </div>
 
-                        {/* ── RIGHT: Personality + quote + chat ── */}
+                        {/* ── RIGHT column ────────────────────────────────── */}
                         <div className="flex-1 min-w-0 flex flex-col gap-4 p-4 overflow-y-auto">
 
                           {/* Personality */}
@@ -585,15 +543,18 @@ export function CharacterDetail({
                                 <button type="button" onClick={() => setPersonalityEditOpen(false)} className="text-xs text-stone-400 hover:text-stone-600 transition">Cancel</button>
                               </div>
                               <div className="p-4 space-y-3">
-                                <div>
-                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Catchphrase</label>
-                                  <input
-                                    value={personalityDraft.catchphrase}
-                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, catchphrase: e.target.value }))}
-                                    placeholder='e.g. "Let&apos;s go!"'
-                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
-                                  />
-                                </div>
+                                {(["catchphrase", "dailyActivity", "favoriteThing"] as const).map((field) => (
+                                  <div key={field}>
+                                    <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">
+                                      {field === "catchphrase" ? "Catchphrase" : field === "dailyActivity" ? "Daily activity" : "Favourite thing"}
+                                    </label>
+                                    <input
+                                      value={personalityDraft[field]}
+                                      onChange={(e) => setPersonalityDraft((d) => ({ ...d, [field]: e.target.value }))}
+                                      className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
+                                    />
+                                  </div>
+                                ))}
                                 <div>
                                   <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">
                                     Traits <span className="font-normal normal-case">(comma-separated)</span>
@@ -605,30 +566,8 @@ export function CharacterDetail({
                                     className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
                                   />
                                 </div>
-                                <div>
-                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Daily activity</label>
-                                  <input
-                                    value={personalityDraft.dailyActivity}
-                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, dailyActivity: e.target.value }))}
-                                    placeholder="e.g. Collects shiny rocks"
-                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">Favourite thing</label>
-                                  <input
-                                    value={personalityDraft.favoriteThing}
-                                    onChange={(e) => setPersonalityDraft((d) => ({ ...d, favoriteThing: e.target.value }))}
-                                    placeholder="e.g. Stargazing"
-                                    className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-400"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => void savePersonality()}
-                                  disabled={personalitySaving}
-                                  className="w-full rounded-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-stone-900 transition-colors"
-                                >
+                                <button type="button" onClick={() => void savePersonality()} disabled={personalitySaving}
+                                  className="w-full rounded-full bg-amber-400 hover:bg-amber-300 disabled:opacity-50 px-4 py-2 text-xs font-semibold text-stone-900 transition-colors">
                                   {personalitySaving ? "Saving…" : "Save personality"}
                                 </button>
                               </div>
@@ -640,9 +579,7 @@ export function CharacterDetail({
                                 <button type="button" onClick={openPersonalityEdit} className="text-[11px] text-stone-400 hover:text-stone-600 font-medium transition">Edit</button>
                               </div>
                               {livePersonality.catchphrase && (
-                                <InfoRow label="Catchphrase">
-                                  <span className="italic">&ldquo;{livePersonality.catchphrase}&rdquo;</span>
-                                </InfoRow>
+                                <InfoRow label="Catchphrase"><span className="italic">&ldquo;{livePersonality.catchphrase}&rdquo;</span></InfoRow>
                               )}
                               {livePersonality.traits && livePersonality.traits.length > 0 && (
                                 <div className="px-4 py-3">
@@ -654,49 +591,35 @@ export function CharacterDetail({
                                   </div>
                                 </div>
                               )}
-                              {livePersonality.dailyActivity && (
-                                <InfoRow label="Daily activity">{livePersonality.dailyActivity}</InfoRow>
-                              )}
-                              {livePersonality.favoriteThing && (
-                                <InfoRow label="Favourite thing">{livePersonality.favoriteThing}</InfoRow>
-                              )}
+                              {livePersonality.dailyActivity && <InfoRow label="Daily activity">{livePersonality.dailyActivity}</InfoRow>}
+                              {livePersonality.favoriteThing && <InfoRow label="Favourite thing">{livePersonality.favoriteThing}</InfoRow>}
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={openPersonalityEdit}
-                              className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 hover:bg-stone-100 px-4 py-4 text-sm text-stone-400 hover:text-stone-600 transition-colors"
-                            >
+                            <button type="button" onClick={openPersonalityEdit}
+                              className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 hover:bg-stone-100 px-4 py-4 text-sm text-stone-400 hover:text-stone-600 transition-colors">
                               <span>＋</span> Add personality
                             </button>
                           )}
 
-                          {/* Quote banner */}
+                          {/* Quote */}
                           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                             <p className="text-sm text-stone-700 leading-snug">
                               <span className="font-semibold text-amber-800">Hi! I am {name}. </span>
-                              And I like{" "}
-                              <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
+                              And I like <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
                             </p>
                           </div>
 
                           {/* Chat */}
                           <div className="rounded-xl border border-stone-200 overflow-hidden flex flex-col">
                             <div className="border-b border-stone-100 px-4 py-2.5 shrink-0">
-                              <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold">
-                                Chat with {name}
-                              </p>
+                              <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold">Chat with {name}</p>
                             </div>
-                            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-stone-50" style={{ maxHeight: 220 }}>
+                            <div className="overflow-y-auto px-3 py-3 space-y-2 bg-stone-50" style={{ maxHeight: 200 }}>
                               {chatMessages.map((m, i) => (
                                 <div key={`${m.role}-${i}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                  <div
-                                    className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
-                                      m.role === "user"
-                                        ? "bg-amber-400 text-stone-900"
-                                        : "bg-white border border-stone-200 text-stone-700"
-                                    }`}
-                                  >
+                                  <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
+                                    m.role === "user" ? "bg-amber-400 text-stone-900" : "bg-white border border-stone-200 text-stone-700"
+                                  }`}>
                                     {m.text}
                                   </div>
                                 </div>
@@ -710,18 +633,13 @@ export function CharacterDetail({
                                 placeholder={`Ask ${name} about memories…`}
                                 className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-300"
                               />
-                              <button
-                                type="button"
-                                onClick={() => void sendChat()}
-                                disabled={chatBusy || !chatInput.trim()}
-                                className="rounded-xl bg-amber-400 hover:bg-amber-300 disabled:bg-stone-200 disabled:text-stone-400 px-3 py-2 text-sm font-semibold text-stone-900 transition-colors"
-                              >
+                              <button type="button" onClick={() => void sendChat()} disabled={chatBusy || !chatInput.trim()}
+                                className="rounded-xl bg-amber-400 hover:bg-amber-300 disabled:bg-stone-200 disabled:text-stone-400 px-3 py-2 text-sm font-semibold text-stone-900 transition-colors">
                                 {chatBusy ? "…" : "Send"}
                               </button>
                             </div>
                           </div>
                         </div>
-
                       </div>
                     </div>
                   )}
@@ -732,9 +650,7 @@ export function CharacterDetail({
                       {liveMemories.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-40 gap-2">
                           <p className="text-stone-400 text-sm">No memories yet.</p>
-                          <p className="text-stone-300 text-xs text-center">
-                            Memories are added from the Storyboard or when you evolve a character.
-                          </p>
+                          <p className="text-stone-300 text-xs text-center">Memories are added from the Storyboard or when you evolve a character.</p>
                         </div>
                       ) : (
                         <ul className="space-y-1">
@@ -759,11 +675,7 @@ export function CharacterDetail({
                   {/* ── Evolution ─────────────────────────────────────────── */}
                   {tab === "evolution" && (
                     <div className="h-full overflow-hidden">
-                      <EvolutionTimeline
-                        characterName={name}
-                        currentImageUrl={liveImageUrl}
-                        versionHistory={liveHistory}
-                      />
+                      <EvolutionTimeline characterName={name} currentImageUrl={liveImageUrl} versionHistory={liveHistory} />
                     </div>
                   )}
                 </div>
@@ -786,24 +698,17 @@ function ModalHeader({ title, sub, onBack }: { title: string; sub?: string; onBa
         <h2 className="font-serif text-lg font-bold text-stone-900">{title}</h2>
         {sub && <p className="text-xs text-stone-400 mt-0.5">{sub}</p>}
       </div>
-      <button type="button" onClick={onBack} className="text-sm font-medium text-stone-400 hover:text-stone-700 transition">
-        ← Back
-      </button>
+      <button type="button" onClick={onBack} className="text-sm font-medium text-stone-400 hover:text-stone-700 transition">← Back</button>
     </div>
   );
 }
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <button type="button" onClick={onClick}
       className={`flex items-center gap-1 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-        active
-          ? "border-amber-400 text-stone-900"
-          : "border-transparent text-stone-400 hover:text-stone-600"
-      }`}
-    >
+        active ? "border-amber-400 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
+      }`}>
       {children}
     </button>
   );
@@ -811,9 +716,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 
 function Pill({ n, amber }: { n: number; amber?: boolean }) {
   return (
-    <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-      amber ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"
-    }`}>{n}</span>
+    <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${amber ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"}`}>{n}</span>
   );
 }
 
