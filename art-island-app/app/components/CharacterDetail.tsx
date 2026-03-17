@@ -187,7 +187,7 @@ export function CharacterDetail({
       if (!generatedPath) throw new Error("No rigPath returned");
       const refreshedPath = `${generatedPath}?v=${Date.now()}`;
       setLiveRigPath(refreshedPath); setLiveRiggedAt(riggedAtValue);
-      setRigMessage("Rig generated successfully.");
+      setRigMessage("Rig generated.");
       onRigGenerated?.({ id, rigPath: refreshedPath, riggedAt: riggedAtValue });
     } catch (err) {
       setRigMessage(err instanceof Error ? err.message : "Rig generation failed.");
@@ -291,8 +291,8 @@ export function CharacterDetail({
           transition={{ duration: 0.15, ease: "easeOut" }}
           className="bg-white rounded-2xl border border-stone-200 w-full overflow-hidden flex flex-col"
           style={{
-            maxWidth:  evolveStep === "rig" ? 760 : 620,
-            height:    "min(92vh, 48rem)",
+            maxWidth:  evolveStep === "rig" ? 760 : 680,
+            height:    "min(92vh, 52rem)",
             maxHeight: "92vh",
           }}
           onClick={(e) => e.stopPropagation()}
@@ -314,7 +314,6 @@ export function CharacterDetail({
                       </div>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={() => setEvolveStep("draw")}
                       className="flex flex-col items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors py-6">
@@ -329,7 +328,6 @@ export function CharacterDetail({
                       <p className="text-xs text-stone-400">PNG, JPG, GIF</p>
                     </button>
                   </div>
-
                   <div>
                     <label className="block text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">
                       What changed? <span className="font-normal normal-case">(optional)</span>
@@ -359,8 +357,7 @@ export function CharacterDetail({
                 <div className="flex-1 overflow-hidden p-4">
                   {evolveStep === "saving" ? (
                     <div className="flex items-center justify-center h-full gap-2">
-                      <Spinner />
-                      <p className="text-sm text-stone-400">Saving evolution…</p>
+                      <Spinner /><p className="text-sm text-stone-400">Saving evolution…</p>
                     </div>
                   ) : (
                     <JointEditor imageUrl={newImageUrl} onConfirm={handleRigConfirm} onBack={() => { setNewImageUrl(null); setEvolveStep("choose"); }} />
@@ -405,11 +402,7 @@ export function CharacterDetail({
                   >
                     ✨ Evolve
                   </button>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mr-3 text-stone-400 hover:text-stone-600 text-xl leading-none transition"
-                  >
+                  <button type="button" onClick={onClose} className="mr-3 text-stone-400 hover:text-stone-600 text-xl leading-none transition">
                     ×
                   </button>
                 </div>
@@ -419,44 +412,49 @@ export function CharacterDetail({
 
                   {/* ── Info ──────────────────────────────────────────────── */}
                   {tab === "info" && (
-                    <div className="h-full overflow-y-auto overscroll-contain p-5 space-y-5">
+                    <div className="h-full overflow-y-auto overscroll-contain">
+                      {/* Two-column layout */}
+                      <div className="flex min-h-full divide-x divide-stone-100">
 
-                      {/* Sprite + meta + actions */}
-                      <div className="flex gap-4">
-                        <div className="relative w-28 h-28 shrink-0 rounded-2xl overflow-hidden border border-stone-200 bg-stone-50">
-                          <AnimatedRigSprite
-                            imageUrl={liveImageUrl}
-                            rigPath={liveRigPath}
-                            joints={liveJoints}
-                            riggedAt={liveRiggedAt}
-                            name={name}
-                            mode={previewMode}
-                            direction={1}
-                            frameSizePx={104}
-                          />
-                          {stageCount > 0 && (
-                            <span className="absolute bottom-1.5 right-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-stone-900">
-                              Lv {stageCount}
-                            </span>
-                          )}
-                        </div>
+                        {/* ── LEFT: Sprite + name + all buttons ── */}
+                        <div className="w-48 shrink-0 flex flex-col gap-4 p-4">
 
-                        <div className="flex-1 space-y-3">
-                          <div>
-                            <h2 className="font-serif text-xl font-bold text-stone-900">{name}</h2>
-                            <p className="text-sm text-stone-400">Age {age}</p>
+                          {/* Sprite */}
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-stone-200 bg-stone-50">
+                              <AnimatedRigSprite
+                                imageUrl={liveImageUrl}
+                                rigPath={liveRigPath}
+                                joints={liveJoints}
+                                riggedAt={liveRiggedAt}
+                                name={name}
+                                mode={previewMode}
+                                direction={1}
+                                frameSizePx={120}
+                              />
+                              {stageCount > 0 && (
+                                <span className="absolute bottom-1.5 right-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-stone-900">
+                                  Lv {stageCount}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <p className="font-serif text-base font-bold text-stone-900 leading-tight">{name}</p>
+                              <p className="text-xs text-stone-400 mt-0.5">Age {age}</p>
+                            </div>
                           </div>
+
+                          {/* Divider */}
+                          <div className="border-t border-stone-100" />
 
                           {/* Animation dropdown */}
                           <div>
-                            <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1">
-                              Animation
-                            </p>
+                            <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest mb-1.5">Animation</p>
                             <select
                               value={liveAnimationPreference}
                               disabled={animationBusy}
                               onChange={(e) => void updateAnimationPreference(e.target.value as "auto" | RigAnimMode)}
-                              className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 focus:outline-none focus:border-stone-400 disabled:opacity-50"
+                              className="w-full rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-700 focus:outline-none focus:border-stone-400 disabled:opacity-50"
                             >
                               {ANIMATION_OPTIONS.map((opt) => (
                                 <option key={opt.key} value={opt.key}>{opt.label}</option>
@@ -464,34 +462,24 @@ export function CharacterDetail({
                             </select>
                           </div>
 
-                          {rigMessage && <p className="text-xs text-stone-400">{rigMessage}</p>}
+                          {/* Divider */}
+                          <div className="border-t border-stone-100" />
 
-                          {/* Action buttons */}
-                          <div className="flex flex-wrap gap-2">
+                          {/* Action buttons — full width, stacked */}
+                          <div className="flex flex-col gap-2">
                             <button
                               type="button"
                               onClick={() => setEvolveStep("choose")}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-stone-900 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 px-3 py-2 text-xs font-semibold text-stone-900 transition-colors"
                             >
                               ✨ Evolve character
                             </button>
-
-                            {onRemoveFromIsland && (
-                              <button
-                                type="button"
-                                onClick={() => void removeFromIsland()}
-                                disabled={removingFromIsland}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition-colors"
-                              >
-                                {removingFromIsland ? "Removing…" : "Remove from island"}
-                              </button>
-                            )}
 
                             <button
                               type="button"
                               onClick={() => void generateRig()}
                               disabled={rigBusy}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-stone-600 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-stone-600 transition-colors"
                             >
                               {rigBusy ? "Generating…" : liveRigPath ? "Regenerate rig" : "Generate rig"}
                             </button>
@@ -500,7 +488,7 @@ export function CharacterDetail({
                               type="button"
                               onClick={() => setManualRigOpen(true)}
                               disabled={manualRigBusy}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 px-3.5 py-1.5 text-xs font-semibold text-blue-600 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors"
                             >
                               {manualRigBusy ? "Saving…" : liveJoints ? "Re-rig manually" : "Set rig manually"}
                             </button>
@@ -509,13 +497,24 @@ export function CharacterDetail({
                               <button
                                 type="button"
                                 onClick={() => onIslandRigToggle(!islandRigEnabled)}
-                                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                                className={`w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
                                   islandRigEnabled
-                                    ? "border border-emerald-300 bg-emerald-500 hover:bg-emerald-600 text-white"
-                                    : "border border-stone-200 bg-white hover:bg-stone-50 text-stone-600"
+                                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                    : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
                                 }`}
                               >
-                                {islandRigEnabled ? "Use classic on island" : "Use rig on island"}
+                                {islandRigEnabled ? "Classic on island" : "Use rig on island"}
+                              </button>
+                            )}
+
+                            {onRemoveFromIsland && (
+                              <button
+                                type="button"
+                                onClick={() => void removeFromIsland()}
+                                disabled={removingFromIsland}
+                                className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 px-3 py-2 text-xs font-semibold text-red-600 transition-colors"
+                              >
+                                {removingFromIsland ? "Removing…" : "Remove from island"}
                               </button>
                             )}
 
@@ -523,90 +522,99 @@ export function CharacterDetail({
                               <button
                                 type="button"
                                 onClick={() => setTab("evolution")}
-                                className="text-xs text-amber-600 hover:text-amber-800 font-medium transition self-center"
+                                className="w-full text-xs text-stone-400 hover:text-stone-600 font-medium transition text-center py-1"
                               >
                                 View {stageCount} stages →
                               </button>
                             )}
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Personality */}
-                      {livePersonality && (
-                        <div className="rounded-xl border border-stone-200 divide-y divide-stone-100">
-                          {livePersonality.catchphrase && (
-                            <InfoRow label="Catchphrase">
-                              <span className="italic">&ldquo;{livePersonality.catchphrase}&rdquo;</span>
-                            </InfoRow>
+                          {rigMessage && (
+                            <p className="text-[11px] text-stone-400 text-center">{rigMessage}</p>
                           )}
-                          {livePersonality.traits && livePersonality.traits.length > 0 && (
-                            <div className="px-4 py-3">
-                              <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mb-2">Traits</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {livePersonality.traits.map((t) => (
-                                  <span key={t} className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs text-stone-600">{t}</span>
-                                ))}
-                              </div>
+                        </div>
+
+                        {/* ── RIGHT: Personality + quote + chat ── */}
+                        <div className="flex-1 min-w-0 flex flex-col gap-4 p-4 overflow-y-auto">
+
+                          {/* Personality */}
+                          {livePersonality && (
+                            <div className="rounded-xl border border-stone-200 divide-y divide-stone-100 overflow-hidden">
+                              {livePersonality.catchphrase && (
+                                <InfoRow label="Catchphrase">
+                                  <span className="italic">&ldquo;{livePersonality.catchphrase}&rdquo;</span>
+                                </InfoRow>
+                              )}
+                              {livePersonality.traits && livePersonality.traits.length > 0 && (
+                                <div className="px-4 py-3">
+                                  <p className="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mb-2">Traits</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {livePersonality.traits.map((t) => (
+                                      <span key={t} className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs text-stone-600">{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {livePersonality.dailyActivity && (
+                                <InfoRow label="Daily activity">{livePersonality.dailyActivity}</InfoRow>
+                              )}
+                              {livePersonality.favoriteThing && (
+                                <InfoRow label="Favourite thing">{livePersonality.favoriteThing}</InfoRow>
+                              )}
                             </div>
                           )}
-                          {livePersonality.dailyActivity && (
-                            <InfoRow label="Daily activity">{livePersonality.dailyActivity}</InfoRow>
-                          )}
-                          {livePersonality.favoriteThing && (
-                            <InfoRow label="Favourite thing">{livePersonality.favoriteThing}</InfoRow>
-                          )}
-                        </div>
-                      )}
 
-                      {/* Quote banner */}
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                        <p className="text-sm text-stone-700">
-                          <span className="font-semibold text-amber-800">Hi! I am {name}. </span>
-                          And I like{" "}
-                          <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
-                        </p>
-                      </div>
+                          {/* Quote banner */}
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                            <p className="text-sm text-stone-700 leading-snug">
+                              <span className="font-semibold text-amber-800">Hi! I am {name}. </span>
+                              And I like{" "}
+                              <span className="font-semibold text-amber-800">{favoriteForQuote}</span>. How are you?!
+                            </p>
+                          </div>
 
-                      {/* Chat */}
-                      <div className="rounded-xl border border-stone-200 overflow-hidden">
-                        <div className="border-b border-stone-100 px-4 py-2.5">
-                          <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold">
-                            Chat with {name}
-                          </p>
-                        </div>
-                        <div className="max-h-52 overflow-y-auto px-3 py-3 space-y-2 bg-stone-50">
-                          {chatMessages.map((m, i) => (
-                            <div key={`${m.role}-${i}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                              <div
-                                className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
-                                  m.role === "user"
-                                    ? "bg-amber-400 text-stone-900"
-                                    : "bg-white border border-stone-200 text-stone-700"
-                                }`}
+                          {/* Chat */}
+                          <div className="rounded-xl border border-stone-200 overflow-hidden flex flex-col">
+                            <div className="border-b border-stone-100 px-4 py-2.5 shrink-0">
+                              <p className="text-[11px] text-stone-400 uppercase tracking-widest font-semibold">
+                                Chat with {name}
+                              </p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-stone-50" style={{ maxHeight: 220 }}>
+                              {chatMessages.map((m, i) => (
+                                <div key={`${m.role}-${i}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                  <div
+                                    className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-snug ${
+                                      m.role === "user"
+                                        ? "bg-amber-400 text-stone-900"
+                                        : "bg-white border border-stone-200 text-stone-700"
+                                    }`}
+                                  >
+                                    {m.text}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="p-3 border-t border-stone-100 flex gap-2 shrink-0">
+                              <input
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void sendChat(); } }}
+                                placeholder={`Ask ${name} about memories…`}
+                                className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void sendChat()}
+                                disabled={chatBusy || !chatInput.trim()}
+                                className="rounded-xl bg-amber-400 hover:bg-amber-300 disabled:bg-stone-200 disabled:text-stone-400 px-3 py-2 text-sm font-semibold text-stone-900 transition-colors"
                               >
-                                {m.text}
-                              </div>
+                                {chatBusy ? "…" : "Send"}
+                              </button>
                             </div>
-                          ))}
+                          </div>
                         </div>
-                        <div className="p-3 border-t border-stone-100 flex gap-2">
-                          <input
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void sendChat(); } }}
-                            placeholder={`Ask ${name} about memories…`}
-                            className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:outline-none focus:border-stone-300"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => void sendChat()}
-                            disabled={chatBusy || !chatInput.trim()}
-                            className="rounded-xl bg-amber-400 hover:bg-amber-300 disabled:bg-stone-200 disabled:text-stone-400 px-3 py-2 text-sm font-semibold text-stone-900 transition-colors"
-                          >
-                            {chatBusy ? "…" : "Send"}
-                          </button>
-                        </div>
+
                       </div>
                     </div>
                   )}
@@ -712,9 +720,5 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 function Spinner() {
-  return (
-    <div
-      className="w-4 h-4 rounded-full border-2 border-stone-200 border-t-stone-500 animate-spin"
-    />
-  );
+  return <div className="w-4 h-4 rounded-full border-2 border-stone-200 border-t-stone-500 animate-spin" />;
 }
