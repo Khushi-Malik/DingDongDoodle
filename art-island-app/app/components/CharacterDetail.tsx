@@ -40,6 +40,8 @@ export interface CharacterDetailProps {
   onRigGenerated?: (updated: { id: string; rigPath: string; riggedAt: string }) => void;
   onJointsUpdated?: (updated: { id: string; joints: Record<string, { x: number; y: number }>; riggedAt: string }) => void;
   onAnimationUpdated?: (updated: { id: string; animationPreference: "auto" | RigAnimMode }) => void;
+  islandRigEnabled?: boolean;
+  onIslandRigToggle?: (enabled: boolean) => void;
   onRemoveFromIsland?: () => void | Promise<void>;
   onEvolved?: (updated: { id: string; imageUrl: string; versionHistory: VersionStage[]; memories: Memory[]; personality: Personality | null }) => void;
 }
@@ -78,6 +80,8 @@ export function CharacterDetail({
   onRigGenerated,
   onJointsUpdated,
   onAnimationUpdated,
+  islandRigEnabled = false,
+  onIslandRigToggle,
   onRemoveFromIsland,
   onEvolved,
 }: CharacterDetailProps) {
@@ -500,6 +504,20 @@ export function CharacterDetail({
                             >
                               {manualRigBusy ? "Saving…" : liveJoints ? "Re-rig manually" : "Set rig manually"}
                             </button>
+
+                            {onIslandRigToggle && (
+                              <button
+                                type="button"
+                                onClick={() => onIslandRigToggle(!islandRigEnabled)}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                                  islandRigEnabled
+                                    ? "border border-emerald-300 bg-emerald-500 hover:bg-emerald-600 text-white"
+                                    : "border border-stone-200 bg-white hover:bg-stone-50 text-stone-600"
+                                }`}
+                              >
+                                {islandRigEnabled ? "Use classic on island" : "Use rig on island"}
+                              </button>
+                            )}
 
                             {stageCount > 1 && (
                               <button

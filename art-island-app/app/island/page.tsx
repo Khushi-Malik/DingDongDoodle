@@ -25,7 +25,7 @@ import { ChooseInputModal } from "../components/ChooseInputModal";
 import { DrawingCanvas } from "../components/DrawingCanvas";
 import { TutorialOverlay } from "../components/TutorialOverlay";
 import JointEditor from "@/app/components/JointEditor";
-import type { RigAnimMode } from "../components/AnimatedRigSprite";
+import { AnimatedRigSprite, type RigAnimMode } from "../components/AnimatedRigSprite";
 
 type ModalState = "none" | "choose" | "draw" | "upload" | "rig";
 type TutorialStep = "create-island" | "draw-maple" | "none";
@@ -129,6 +129,9 @@ export default function App() {
   const [nextIslandId, setNextIslandId] = useState(1);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [rigViewByCharacter, setRigViewByCharacter] = useState<
+    Record<string, boolean>
+  >({});
 
   const [selectedCharacter, setSelectedCharacter] =
     useState<CharacterData | null>(null);
@@ -239,11 +242,24 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem("darkMode");
     setDarkMode(saved === "true");
+    const savedRigMap = localStorage.getItem("rigViewByCharacter");
+    if (savedRigMap) {
+      try {
+        const parsed = JSON.parse(savedRigMap) as Record<string, boolean>;
+        setRigViewByCharacter(parsed);
+      } catch {
+        // Ignore malformed localStorage values.
+      }
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(darkMode));
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem("rigViewByCharacter", JSON.stringify(rigViewByCharacter));
+  }, [rigViewByCharacter]);
 
   useEffect(() => {
     if (!selectedCharacter) return;
@@ -873,15 +889,62 @@ export default function App() {
                       ch.animationPreference !== "auto"
                         ? ch.animationPreference
                         : autoMode;
+                    const useRigSprite =
+                      !!rigViewByCharacter[ch.id] &&
+                      (!!ch.rigPath || !!ch.joints);
                     return (
-                      <Character
-                        key={ch.id}
-                        {...ch}
-                        rigPath={null}
-                        animationMode={animationMode}
-                        direction={direction}
-                        onClick={() => setSelectedCharacter(ch)}
-                      />
+                      useRigSprite ? (
+                        <motion.div
+                          key={ch.id}
+                          className="absolute cursor-pointer pointer-events-auto"
+                          data-no-pan="true"
+                          style={{
+                            left: `${ch.position.x}%`,
+                            top: `${Math.max(0, ch.position.y - 12)}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                          initial={{ scale: 0, y: -100 }}
+                          animate={{ scale: 1, y: 0 }}
+                          whileHover={{ scale: 1.08 }}
+                          whileTap={{ scale: 0.95 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 260,
+                            damping: 20,
+                          }}
+                          onClick={() => setSelectedCharacter(ch)}
+                        >
+                          <div className="flex flex-col items-center">
+                            <div className="w-24 h-24 overflow-hidden relative">
+                              <AnimatedRigSprite
+                                imageUrl={ch.imageUrl}
+                                rigPath={ch.rigPath}
+                                joints={ch.joints}
+                                riggedAt={ch.riggedAt}
+                                allowJointFallback
+                                name={ch.name}
+                                mode={animationMode}
+                                direction={direction}
+                                frameSizePx={96}
+                              />
+                            </div>
+                            <div className="mt-2 px-3 py-1 rounded-full">
+                              <p className="text-sm font-medium text-gray-800">
+                                {ch.name}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <Character
+                          key={ch.id}
+                          {...ch}
+                          rigPath={null}
+                          animationMode={animationMode}
+                          direction={direction}
+                          onClick={() => setSelectedCharacter(ch)}
+                        />
+                      )
                     );
                   })}
               </div>
@@ -1106,6 +1169,13 @@ export default function App() {
             animationPreference={
               selectedCharacter.animationPreference ?? "auto"
             }
+            islandRigEnabled={!!rigViewByCharacter[selectedCharacter.id]}
+            onIslandRigToggle={(enabled) => {
+              setRigViewByCharacter((prev) => ({
+                ...prev,
+                [selectedCharacter.id]: enabled,
+              }));
+            }}
             onAnimationUpdated={(updated) => {
               setCharacters((prev) =>
                 prev.map((c) =>
