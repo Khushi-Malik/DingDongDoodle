@@ -36,6 +36,15 @@ function decodeDataUrl(url: string): Buffer | null {
   }
 }
 
+function dataUrlMime(url: string): string | null {
+  if (!url.startsWith("data:")) return null;
+  const idx = url.indexOf(",");
+  if (idx < 0) return null;
+  const meta = url.slice(5, idx).toLowerCase();
+  const mime = meta.split(";")[0]?.trim();
+  return mime || null;
+}
+
 function fileContentType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -58,6 +67,10 @@ function normalizeWorkerUrl(rawUrl: string): string {
   return `${trimmed.replace(/\/+$/, "")}/generate-rig`;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function callPythonWorker(
   imageBuffer: Buffer,
   useEditor: boolean
@@ -76,36 +89,58 @@ async function callPythonWorker(
   formData.append("image", new Blob([Uint8Array.from(imageBuffer)], { type: "image/png" }), "input.png");
   formData.append("use_editor", String(useEditor));
 
-  const response = await fetch(workerUrl, {
-    method: "POST",
-    headers: {
-      "X-Worker-Secret": workerSecret,
-    },
-    body: formData,
-  });
+  const maxAttempts = 3;
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Python worker failed: ${response.status} - ${errorText}`
-    );
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(workerUrl, {
+        method: "POST",
+        headers: {
+          "X-Worker-Secret": workerSecret,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const message = `Python worker failed: ${response.status} - ${errorText}`;
+
+        // Render/free-tier workers can briefly return gateway errors on wakeup.
+        if ([502, 503, 504].includes(response.status) && attempt < maxAttempts) {
+          await sleep(800 * attempt);
+          continue;
+        }
+
+        throw new Error(message);
+      }
+
+      const result = await response.json() as {
+        ok: boolean;
+        rigJson?: unknown;
+        files?: Record<string, { contentType: string; dataBase64: string }>;
+        error?: string;
+      };
+
+      if (!result.ok || !result.rigJson || !result.files) {
+        throw new Error(`Python worker error: ${result.error || "Unknown error"}`);
+      }
+
+      return {
+        rigJson: result.rigJson,
+        files: result.files,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Python worker request failed");
+      lastError = err;
+      const maybeTransient =
+        /fetch failed|network|timed out|ECONNRESET|EAI_AGAIN/i.test(err.message);
+      if (!maybeTransient || attempt >= maxAttempts) break;
+      await sleep(800 * attempt);
+    }
   }
 
-  const result = await response.json() as {
-    ok: boolean;
-    rigJson?: unknown;
-    files?: Record<string, { contentType: string; dataBase64: string }>;
-    error?: string;
-  };
-
-  if (!result.ok || !result.rigJson || !result.files) {
-    throw new Error(`Python worker error: ${result.error || "Unknown error"}`);
-  }
-
-  return {
-    rigJson: result.rigJson,
-    files: result.files,
-  };
+  throw (lastError ?? new Error("Python worker request failed"));
 }
 
 export async function POST(request: Request) {
@@ -140,6 +175,8 @@ export async function POST(request: Request) {
 
     try {
       let imageBuffer: Buffer;
+      const imageMime = dataUrlMime(imageUrl);
+
       const fromData = decodeDataUrl(imageUrl);
       if (fromData) {
         imageBuffer = fromData;
@@ -180,7 +217,18 @@ export async function POST(request: Request) {
       }
 
       // Call Python worker instead of local execution
-      const workerResponse = await callPythonWorker(imageBuffer, useEditor);
+      let workerResponse;
+      try {
+        workerResponse = await callPythonWorker(imageBuffer, useEditor);
+      } catch (error) {
+        if (imageMime === "image/avif") {
+          const base = error instanceof Error ? error.message : "Python worker request failed";
+          throw new Error(
+            `${base} (character image is AVIF; ensure python-worker has pillow-avif-plugin installed and redeployed).`
+          );
+        }
+        throw error;
+      }
       const rigJson = workerResponse.rigJson;
       const rigFiles = workerResponse.files;
 

@@ -38,6 +38,11 @@ from PIL import Image
 from scipy import ndimage
 
 try:
+    import pillow_avif  # type: ignore  # Registers AVIF support in Pillow
+except ImportError:
+    pillow_avif = None
+
+try:
     import pygame
     HAS_PYGAME = True
 except ImportError:
