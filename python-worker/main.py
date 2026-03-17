@@ -14,12 +14,36 @@ import uvicorn
 
 app = FastAPI()
 
+def clean_env(name: str, default: str) -> str:
+    """Return sanitized env values and ignore accidental multiline pastes."""
+    raw = os.environ.get(name, default)
+    first_line = raw.splitlines()[0] if raw else default
+    return first_line.strip() or default
+
+
+def resolve_script_path() -> str:
+    """Resolve rig script path from env and common in-container locations."""
+    candidate_env = clean_env("RIG_PYTHON_SCRIPT", "/app/arap_animate.py")
+    candidates = [
+        candidate_env,
+        "/app/arap_animate.py",
+        "/src/python-worker/arap_animate.py",
+        "/src/art-island-app/image_mesh_animation/arap_animate.py",
+        "/src/art-island-app/image-mesh-animation/arap_animate.py",
+        "/src/image_2/arap_animate.py",
+    ]
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return candidate
+    return candidate_env
+
+
 # Worker secret for basic auth
-WORKER_SECRET = os.environ.get("WORKER_SECRET", "your-secret-key-change-in-prod")
+WORKER_SECRET = clean_env("WORKER_SECRET", "your-secret-key-change-in-prod")
 
 # Path to arap_animate.py script
-SCRIPT_PATH = os.environ.get("RIG_PYTHON_SCRIPT", "/app/arap_animate.py")
-PYTHON_BIN = os.environ.get("RIG_PYTHON_BIN", "python3")
+SCRIPT_PATH = resolve_script_path()
+PYTHON_BIN = clean_env("RIG_PYTHON_BIN", "python3")
 
 
 def verify_secret(x_worker_secret: str = Header(...)):
@@ -173,5 +197,5 @@ async def health():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(clean_env("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
