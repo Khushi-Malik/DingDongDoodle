@@ -49,10 +49,23 @@ This guide explains how to deploy Ding Dong Doodle to Vercel with a separate Pyt
    - **Name**: `ding-dong-doodle-python-worker`
    - **Runtime**: `Docker`
    - **Branch**: `main`
-   - **Dockerfile Path**: `python-worker/Dockerfile`
+   - **Root Directory**: `python-worker`
+   - **Dockerfile Path**: `Dockerfile`
+   - **Docker Build Context**: `.`
    - **Auto-Deploy**: Toggle ON
 
-5. **Add Environment Variables**:
+5. **Important: Make worker folder self-contained**:
+   - Ensure `python-worker/arap_animate.py` exists in your repo.
+   - The Docker build context cannot copy from parent folders like `../image_2/...`.
+   - If needed, copy once locally and commit:
+     ```bash
+     cp art-island-app/image_mesh_animation/arap_animate.py python-worker/arap_animate.py
+     git add python-worker/arap_animate.py
+     git commit -m "Add rig script to python worker context"
+     git push origin main
+     ```
+
+6. **Add Environment Variables**:
    - Click "Environment" tab
    - Add these variables:
      ```
@@ -62,12 +75,12 @@ This guide explains how to deploy Ding Dong Doodle to Vercel with a separate Pyt
      ```
    - **IMPORTANT**: Generate a strong WORKER_SECRET (e.g., `openssl rand -hex 32`)
 
-6. **Deploy**:
+7. **Deploy**:
    - Click "Create Web Service"
    - Wait for build (5-10 minutes for first build)
    - Copy the service URL (e.g., `https://ding-dong-doodle-python-worker.onrender.com`)
 
-7. **Test the worker**:
+8. **Test the worker**:
    ```bash
    curl https://ding-dong-doodle-python-worker.onrender.com/health \
      -H "X-Worker-Secret: <your-WORKER_SECRET>"
@@ -163,6 +176,19 @@ This guide explains how to deploy Ding Dong Doodle to Vercel with a separate Pyt
 - Check worker logs: Dashboard → Service → Logs
 - Verify `/app/arap_animate.py` exists inside container
 - Confirm `Dockerfile` copies the script correctly
+
+### Docker build error: `main.py not found` or `requirements.txt not found`
+
+- Set Render **Root Directory** to `python-worker`
+- Set **Dockerfile Path** to `Dockerfile`
+- Set **Docker Build Context** to `.`
+- Do not use a Dockerfile `COPY ../...` source path
+
+### Docker build error: `../image_2/arap_animate.py not found`
+
+- The file must be inside the build context
+- Commit `python-worker/arap_animate.py` to your repo
+- Keep Dockerfile line as `COPY arap_animate.py .`
 
 ### "Unauthorized" error (401)
 

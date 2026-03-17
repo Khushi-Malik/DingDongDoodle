@@ -6,10 +6,7 @@ WORKDIR /app
 # Copy worker app
 COPY main.py .
 COPY requirements.txt .
-
-# Copy your Python rig generation script
-# (Adjust path if your arap_animate.py is located elsewhere)
-COPY ../image_2/arap_animate.py .
+COPY arap_animate.py .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt

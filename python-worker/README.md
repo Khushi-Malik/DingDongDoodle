@@ -20,8 +20,8 @@ pip install -r requirements.txt
 
 ### 2. Copy arap_animate.py
 ```bash
-# Adjust path to match where your Python script is located
-cp ../image_2/arap_animate.py .
+# Ensure the script exists inside this folder (required for Docker build context)
+cp ../image_2/arap_animate.py ./arap_animate.py
 ```
 
 ### 3. Run locally
@@ -119,7 +119,7 @@ docker run -p 8000:8000 \
 | `script not found` | Verify `RIG_PYTHON_SCRIPT` path in Dockerfile and env var |
 | `401 Unauthorized` | Check `X-Worker-Secret` header matches `WORKER_SECRET` |
 | `timeout (2 min)` | Large/complex images take time; normal for first run |
-| Build fails | Ensure `../image_2/arap_animate.py` exists relative to Dockerfile |
+| Build fails | Ensure `python-worker/arap_animate.py` exists and Render Docker context is `python-worker` |
 
 ## Performance
 
