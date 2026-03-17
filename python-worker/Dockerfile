@@ -3,10 +3,23 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy worker app
-COPY main.py .
-COPY requirements.txt .
-COPY arap_animate.py .
+# Copy current build context and normalize paths so this Dockerfile works
+# whether context is repo root or python-worker.
+COPY . /src
+
+RUN set -eux; \
+    if [ -f /src/main.py ]; then cp /src/main.py /app/main.py; \
+    elif [ -f /src/python-worker/main.py ]; then cp /src/python-worker/main.py /app/main.py; \
+    else echo "main.py not found in build context"; exit 1; fi; \
+    if [ -f /src/requirements.txt ]; then cp /src/requirements.txt /app/requirements.txt; \
+    elif [ -f /src/python-worker/requirements.txt ]; then cp /src/python-worker/requirements.txt /app/requirements.txt; \
+    else echo "requirements.txt not found in build context"; exit 1; fi; \
+    if [ -f /src/arap_animate.py ]; then cp /src/arap_animate.py /app/arap_animate.py; \
+    elif [ -f /src/python-worker/arap_animate.py ]; then cp /src/python-worker/arap_animate.py /app/arap_animate.py; \
+    elif [ -f /src/art-island-app/image_mesh_animation/arap_animate.py ]; then cp /src/art-island-app/image_mesh_animation/arap_animate.py /app/arap_animate.py; \
+    elif [ -f /src/art-island-app/image-mesh-animation/arap_animate.py ]; then cp /src/art-island-app/image-mesh-animation/arap_animate.py /app/arap_animate.py; \
+    elif [ -f /src/image_2/arap_animate.py ]; then cp /src/image_2/arap_animate.py /app/arap_animate.py; \
+    else echo "arap_animate.py not found in build context"; exit 1; fi
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
